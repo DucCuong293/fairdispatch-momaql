@@ -1,0 +1,8 @@
+Python: Python 3.12.10
+numpy 2.2.6
+scipy 1.16.2
+pandas 2.3.2
+pyarrow 21.0.0
+matplotlib 3.10.6
+MINGW64_NT-10.0-26200 DucCuong 3.6.9-b4195d69.x86_64 2026-06-06 17:49 UTC x86_64 Msys
+generated_at: 2026-08-21T05:51:45Z

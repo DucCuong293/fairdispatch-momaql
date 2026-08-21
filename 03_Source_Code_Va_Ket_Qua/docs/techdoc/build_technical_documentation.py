@@ -30,6 +30,7 @@ from _docx_style import (
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / "reports"
 DATA = ROOT / "data"
+FINAL_TEST = ROOT / "final_test"
 OUT = Path(__file__).parent / "Technical_Documentation.docx"
 
 DARK = RGBColor(0x20, 0x20, 0x20)
@@ -84,6 +85,21 @@ def main():
         p = DATA / fname
         if p.exists():
             ds_hashes[fname] = (sha256(p), p.stat().st_size)
+
+    # Final Test artifacts (read-only; no rerun).
+    ft_available = FINAL_TEST.exists() and (FINAL_TEST / "test_quality_transform_manifest.json").exists()
+    ft_manifest = None
+    ft_commands_log = ""
+    ft_environment_txt = ""
+    if ft_available:
+        import json
+        ft_manifest = json.loads((FINAL_TEST / "test_quality_transform_manifest.json").read_text(encoding="utf-8"))
+        cmd_log_path = FINAL_TEST / "logs" / "commands.log"
+        env_path = FINAL_TEST / "logs" / "environment.txt"
+        if cmd_log_path.exists():
+            ft_commands_log = cmd_log_path.read_text(encoding="utf-8")
+        if env_path.exists():
+            ft_environment_txt = env_path.read_text(encoding="utf-8")
 
     doc = Document()
     setup_document(doc, footer_label="FairDispatch -- Technical Documentation")
@@ -173,6 +189,13 @@ pip install torch                        # only needed for train_and_eval_mlp.py
 
     # ---------------- 4. Data Contract ----------------
     heading(doc, "4. Data Contract", level=1)
+    add_table(doc, ["Split", "Role"], [
+        ["train.parquet", "Train Q(zone,hour) (train_momaql.py); MLP forecast sensitivity training"],
+        ["val.parquet", "Development / analysis: build+debug the simulator, compare policies, "
+         "ablation, Pareto sweep, long-horizon, mechanism probes, freeze final configuration"],
+        ["test.parquet", "Final held-out temporal verification ONLY (Sec. 8) -- never used to "
+         "select lambda/gamma/alpha, never used by the live product demo"],
+    ])
     heading(doc, "4.1 Raw parquet schema (train/val/test)", level=2)
     para(doc, "Columns read by common_loader.load_requests_fast() and train_momaql.py's own "
               "loader: pickup_ts (timestamp), pickup_latitude, pickup_longitude, "
@@ -331,7 +354,115 @@ Q-update (Bellman TD(0), on commit, only if not frozen):
     ])
 
     # ---------------- 8. Exact reproduction commands ----------------
-    heading(doc, "8. Exact Reproduction Commands", level=1)
+    if ft_available:
+        heading(doc, "8. Final Test Protocol & Reproducibility", level=1)
+        para(doc, "Companion engineering detail for the Final Held-out Temporal Test Evaluation "
+                  "(Research Report Sec. 9). Everything here is read live from `final_test/` at "
+                  "document-build time -- no number here is hand-typed.", size=9.5, color=GREY)
+
+        heading(doc, "8.1 Frozen Protocol", level=2)
+        add_table(doc, ["Parameter", "Value"], [
+            ["Policy", "MOMAQL canonical (lambda=0.5, gamma=0.9, alpha=0.1)"],
+            ["Drivers", "200"], ["Assignment solver", "Hungarian joint assignment (scipy.optimize.linear_sum_assignment)"],
+            ["Q-table", "data/momaql_q_table_trained.json, frozen (no further learning at eval time)"],
+            ["Seeds", "20260721, 20260722, 20260723, 20260724, 20260725"],
+            ["No-tuning rule", "No config/hyperparameter/policy/simulator change after any Test outcome is inspected"],
+        ])
+        para(doc, "Full protocol text (source hashes, dataset checksums, environment): "
+                  "`final_test/FINAL_TEST_PROTOCOL.md`.", size=9.5, color=GREY)
+
+        heading(doc, "8.2 Data Quality Transform (evaluation-time, raw file immutable)", level=2)
+        tstats = ft_manifest["per_split"]["test"]
+        para(doc, "test.parquet on disk is NEVER modified. Two independent rules are applied only "
+                  "to the in-memory evaluation view, in this order, and never mixed:")
+        bullets(doc, [
+            "A. Strict temporal-boundary hygiene: exclude rows whose pickup_ts epoch second equals "
+            "val.parquet's max pickup_ts epoch second (a real row-index split artifact -- distinct "
+            "genuine pickups landing in the same second at the cut point, not duplicated data) -- "
+            f"{tstats['temporal_boundary_excluded']} rows excluded.",
+            "B. Minimal deterministic duration repair: if stored duration_seconds is valid "
+            "(0 < x <= 24h), keep. Elif dropoff_ts-pickup_ts is valid, repair "
+            "duration_seconds_eval from timestamps (quality_action=REPAIRED_FROM_TIMESTAMPS). Else "
+            f"exclude (irrecoverable) -- {tstats['duration_repaired']} repaired, "
+            f"{tstats['duration_excluded']} excluded in this pass.",
+        ])
+        add_table(doc, ["Step", "Rows"], [
+            ["Raw test.parquet", str(tstats["original_rows"])],
+            ["Temporal-boundary excluded", str(tstats["temporal_boundary_excluded"])],
+            ["Duration repaired from timestamps", str(tstats["duration_repaired"])],
+            ["Duration excluded (irrecoverable)", str(tstats["duration_excluded"])],
+            ["Final Test Evaluation View", str(tstats["final_evaluated_rows"])],
+        ])
+        para(doc, "Implementation: `scripts/final_test/quality_transform.py` "
+                  "(`load_requests_with_quality_transform()`), covered by self-checks in "
+                  "`scripts/final_test/test_quality_transform.py`. Every evaluated request retains "
+                  "`duration_seconds_raw` and `quality_action` alongside the (possibly repaired) "
+                  "`duration_seconds` for full per-row auditability. Full audit trail (upstream "
+                  "provenance trace confirming the corruption exists in the raw source data, not in "
+                  "this project's own preprocessing): `final_test/DATA_QUALITY_GATE.md`.",
+              size=9.5, color=GREY)
+
+        heading(doc, "8.3 Final Test Commands", level=2)
+        if ft_commands_log:
+            code_block(doc, ft_commands_log.strip())
+        else:
+            code_block(doc, "python scripts/final_test/audit_test_dataset.py\n"
+                             "python scripts/final_test/verify_before_run.py\n"
+                             "python scripts/final_test/run_final_test_baselines.py\n"
+                             "python scripts/final_test/run_final_test_ablation.py\n"
+                             "python scripts/final_test/run_final_test_long_horizon.py\n"
+                             "python scripts/final_test/build_final_test_summary.py")
+
+        heading(doc, "8.4 Artifact Map (final_test/)", level=2)
+        add_table(doc, ["Path", "Purpose"], [
+            ["FINAL_TEST_PROTOCOL.md", "Frozen config/seeds/hashes, written before any policy ran on test.parquet"],
+            ["DATA_QUALITY_GATE.md", "Full duration-anomaly audit, root-cause trace, repair rule justification"],
+            ["test_quality_transform_manifest.json", "Machine-readable repair/exclusion counts + row IDs per split"],
+            ["baseline/", "5 policies x 5 seeds on the Final Test Evaluation View (per-seed + summary CSV)"],
+            ["ablation/", "Full / No Forecast / No Fairness x 5 seeds"],
+            ["long_horizon/", "Checkpointed single-trajectory results, days 1-37 + policy disagreement rate"],
+            ["validation_vs_test.csv", "Per-finding Validation-vs-Test direction comparison (heldout_generalization)"],
+            ["test_claim_assessment.csv", "C1-C6 claim table: heldout_generalization + paper_replication_verdict (2 independent columns)"],
+            ["FINAL_TEST_MENTOR_SUMMARY.md", "Human-readable summary answering the 6 core generalization questions"],
+            ["figures/", "Baseline/ablation/long-horizon PNGs generated from the Final Test CSVs"],
+            ["logs/", "commands.log, environment.txt, runtimes.csv"],
+        ])
+
+        heading(doc, "8.5 Metric Definitions Addendum", level=2)
+        bullets(doc, [
+            "Fairness is a CONCEPT, not a single metric -- Gini and Variance are the two metrics "
+            "reported (see Sec. 5/6 above for their formulas); lower Gini and lower Variance both "
+            "mean more equal driver income.",
+            "Paired delta: for a given seed, (metric under config A) - (metric under config B), "
+            "computed per-seed then averaged -- reported alongside sign consistency (e.g. \"5/5 "
+            "seeds\") rather than only the mean.",
+            "Directional (heldout) generalization: does a Validation-observed finding repeat in the "
+            "SAME DIRECTION on Test? Computed purely from sign/comparison, no magnitude threshold.",
+            "Paper replication verdict: does the finding match arXiv:2407.17839's own qualitative "
+            "claim text? An independent judgment against the paper, NOT derivable from the "
+            "generalization computation -- a finding can generalize while the paper claim remains "
+            "Not Reproduced (see Research Report Sec. 10 for the worked C4 example).",
+        ])
+
+        heading(doc, "8.6 Reproducibility Limitations (Final Test)", level=2)
+        bullets(doc, [
+            "Dataset is NYC TLC 2013, not the paper's original 2016 data -- Final Test inherits the "
+            "same trend-replication scope as Validation (Sec. 3 of the Research Report), not exact "
+            "reproduction.",
+            "5 seeds only -- effect size, mean/std, and paired seed-sign consistency are the primary "
+            "evidence; no formal statistical significance test is computed or claimed.",
+            "Canonical lambda=0.5 operating point only -- no lambda sweep was run on Test (by design; "
+            "Test is for verification, not for choosing a new operating point).",
+            "The product demo (05_SanPham_Demo) uses the Validation/demo slice by default, never "
+            "test.parquet -- Test is reserved for this final scientific evaluation, not exposed in "
+            "the live Control Room.",
+        ])
+        if ft_environment_txt:
+            para(doc, "Final Test run environment (captured in final_test/logs/environment.txt):", size=9.5, color=GREY)
+            code_block(doc, ft_environment_txt.strip())
+
+    # ---------------- 9. Exact Reproduction Commands ----------------
+    heading(doc, "9. Exact Reproduction Commands", level=1)
     para(doc, "Run from the repository root, in this order. Row counts are the current retained "
               "artifacts, verified live at the time this document was built.")
     cmd_rows = [
@@ -377,8 +508,8 @@ Q-update (Bellman TD(0), on commit, only if not frozen):
                  "canonical table when present. If that file exists, quarantine it before any "
                  "evaluation run.")
 
-    # ---------------- 9. Reproducibility Package ----------------
-    heading(doc, "9. Reproducibility Package", level=1)
+    # ---------------- 10. Reproducibility Package ----------------
+    heading(doc, "10. Reproducibility Package", level=1)
     add_table(doc, ["Field", "Value"], [
         ["Git commit", head],
         ["Dataset manifest", "data/train.parquet (912,375 rows), data/val.parquet (195,508 "
@@ -395,15 +526,16 @@ Q-update (Bellman TD(0), on commit, only if not frozen):
         ["CPU/GPU", "Intel Core i5-10300H (CPU-only for all simulator/dispatch experiments); "
          "NVIDIA GTX 1650 via CUDA (MLP training in train_and_eval_mlp.py only)"],
         ["Number of tests", test_line],
-        ["Result artifacts", "every file in reports/ (16 CSVs + 1 PNG + 1 JSON checksum manifest)"],
+        ["Result artifacts", "every file in reports/ (16 CSVs + 1 PNG + 1 JSON checksum manifest) "
+         "-- Validation. Held-out Test artifacts: final_test/ (see Sec. 8)."],
     ])
     para(doc, "reports/dataset_checksums.json is a static, previously-written snapshot; the "
               "table above is computed FRESH at document-build time and is the authoritative "
               "source if the two ever disagree.", size=9.5, color=GREY)
 
-    # ---------------- 10. Known Issues, Assumptions, Troubleshooting ----------------
-    heading(doc, "10. Known Issues, Assumptions, and Troubleshooting", level=1)
-    heading(doc, "10.1 Assumptions (mirrors Research Report Sec. 10.3, engineering framing)", level=2)
+    # ---------------- 11. Known Issues, Assumptions, Troubleshooting ----------------
+    heading(doc, "11. Known Issues, Assumptions, and Troubleshooting", level=1)
+    heading(doc, "11.1 Assumptions (mirrors Research Report Sec. 11.3, engineering framing)", level=2)
     bullets(doc, [
         "A1. Driver count (200) is not specified by the paper. Chosen as a plausible Manhattan "
         "fleet size; change N_DRIVERS at the top of any run_*.py to test sensitivity (see "
@@ -422,7 +554,7 @@ Q-update (Bellman TD(0), on commit, only if not frozen):
         "A5. No dependency version lockfile is retained; Sec. 3's package list is the audited "
         "working set, not a pinned requirements.txt.",
     ])
-    heading(doc, "10.2 Known Issues", level=2)
+    heading(doc, "11.2 Known Issues", level=2)
     bullets(doc, [
         "tests/test_simulator_invariants.py::test_no_double_booking_within_window and "
         "::test_time_monotonicity call the simulator with the default record_trace=False, so "
@@ -436,7 +568,7 @@ Q-update (Bellman TD(0), on commit, only if not frozen):
         "No structured logging framework; every script prints plain stdout progress lines with "
         "flush=True. Capture stdout to a file if you need a persistent run log.",
     ])
-    heading(doc, "10.3 Troubleshooting", level=2)
+    heading(doc, "11.3 Troubleshooting", level=2)
     bullets(doc, [
         "\"FileNotFoundError: data/train.parquet\" -- the parquet splits are gitignored (too "
         "large for a normal git push); they must be obtained separately from wherever this "

@@ -1,0 +1,29 @@
+[q] using momaql_q_table_trained.json
+[load] 195,506 evaluated Test requests (Final Test Evaluation View)
+
+=== FINAL TEST SUITE B: KEY ABLATION ===
+[full         seed=20260721] Utility=$1,458,488.1 Gini=0.1970 Var=7,518,820.0 (53.6s)
+[full         seed=20260722] Utility=$1,450,544.1 Gini=0.1952 Var=7,541,335.9 (56.4s)
+[full         seed=20260723] Utility=$1,454,736.1 Gini=0.2186 Var=10,088,116.6 (55.1s)
+[full         seed=20260724] Utility=$1,441,595.7 Gini=0.1930 Var=6,984,783.3 (53.3s)
+[full         seed=20260725] Utility=$1,464,900.6 Gini=0.2017 Var=8,104,973.7 (54.7s)
+[no_forecast  seed=20260721] Utility=$1,243,099.2 Gini=0.1659 Var=3,643,667.2 (56.2s)
+[no_forecast  seed=20260722] Utility=$1,253,760.4 Gini=0.1597 Var=3,454,147.9 (58.0s)
+[no_forecast  seed=20260723] Utility=$1,240,317.1 Gini=0.1652 Var=3,658,467.3 (54.7s)
+[no_forecast  seed=20260724] Utility=$1,227,892.7 Gini=0.1557 Var=3,058,630.0 (56.1s)
+[no_forecast  seed=20260725] Utility=$1,243,476.6 Gini=0.1454 Var=2,744,869.4 (57.1s)
+[no_fairness  seed=20260721] Utility=$942,928.2 Gini=0.4642 Var=17,399,356.2 (56.7s)
+[no_fairness  seed=20260722] Utility=$916,305.0 Gini=0.4324 Var=13,630,178.9 (54.8s)
+[no_fairness  seed=20260723] Utility=$951,957.0 Gini=0.4305 Var=14,038,957.4 (53.4s)
+[no_fairness  seed=20260724] Utility=$937,124.8 Gini=0.4457 Var=15,277,910.5 (53.0s)
+[no_fairness  seed=20260725] Utility=$931,266.1 Gini=0.4555 Var=16,215,733.9 (53.8s)
+
+=== FINAL TEST ABLATION SUMMARY ===
+             utility_mean  utility_std  ...   std_mean  served_mean
+ablation                                ...                        
+full         1.454053e+06    8736.4838  ...  2830.8346     155874.8
+no_forecast  1.241709e+06    9261.7632  ...  1817.1488     128954.0
+no_fairness  9.359162e+05   13361.8814  ...  3909.1187      95426.2
+
+[3 rows x 7 columns]
+[done]

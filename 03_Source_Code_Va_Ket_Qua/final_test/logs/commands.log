@@ -1,0 +1,14 @@
+All commands run from: D:\ProjectVSF\FairDispatch_MOMAQL_Fair_Ride_Hailing_Dispatch_Replication\03_Source_Code_Va_Ket_Qua
+
+python scripts/final_test/audit_test_dataset.py
+python scripts/final_test/test_quality_transform.py
+python scripts/final_test/quality_transform.py
+python scripts/final_test/verify_before_run.py
+python scripts/final_test/run_final_test_baselines.py > final_test/logs/baseline_run.log 2>&1
+python scripts/final_test/run_final_test_ablation.py > final_test/logs/ablation_run.log 2>&1
+python scripts/final_test/run_final_test_long_horizon.py > final_test/logs/long_horizon_run.log 2>&1
+python scripts/final_test/build_final_test_summary.py
+
+No test-driven tuning occurred between any of these steps. Protocol
+(FINAL_TEST_PROTOCOL.md) and data-quality transform (DATA_QUALITY_GATE.md)
+were frozen before run_final_test_baselines.py was ever executed.

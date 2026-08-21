@@ -1,10 +1,12 @@
-# Speaker Notes — FairDispatch Research Presentation (Review Version, 31 slide)
+# Speaker Notes — FairDispatch Research Presentation (Review Version, 32 slide)
 
-Dựa trên `docs/FairDispatch_v3_Mentor_Presentation_Playbook.md` (mentor guidance) và số liệu thật đã verify lại trực tiếp từ `reports/*.csv` tại thời điểm build slide (Git HEAD `3174cefd4b98fc06172cbda8586f76da78d3ad9e`). Không có số liệu nào trong slide bị chỉnh sửa để giống paper hơn.
+Dựa trên `docs/FairDispatch_v3_Mentor_Presentation_Playbook.md` (mentor guidance) và số liệu thật đã verify lại trực tiếp từ `reports/*.csv` + `final_test/*` tại thời điểm build slide. Không có số liệu nào trong slide bị chỉnh sửa để giống paper hơn.
 
-**Đây là bản review đầy đủ 32 slide** — chưa phải bản trình bày cuối cùng. Counter trên deck chạy tuần tự 1/32 → 32/32. Các slide chi tiết/bổ sung (công thức đầy đủ, per-seed summary, bảng raw, mechanism chi tiết...) giờ nằm **ngay sau** slide chính mà chúng bổ trợ, trong đúng Phần (1–4) của Agenda — không còn tách thành một khối "phụ lục" riêng ở cuối. Đọc hết rồi mới quyết định slide nào giữ lại khi thuyết trình thật, cùng mentor.
+> **CẬP NHẬT (Held-out Test, 2 vòng):** vòng 1 chèn thêm 5 slide Test (Test Data Quality Gate, Held-out Baseline, Held-out Ablation, Held-out Long-Horizon, Validation-vs-Test) và đổi claim matrix sang bảng 2 cột `Held-out Test` / `Paper Replication` (deck lên 37 slide). Vòng 2 (theo yêu cầu rút gọn) đã **bỏ** slide Test Data Quality Gate riêng, slide Validation-vs-Test Summary riêng, slide công thức TD(0) chi tiết, và 2 slide Mechanism (Probe + Diagnostics chi tiết) — nội dung của các slide bị bỏ giờ nói bằng lời khi trình bày slide Dataset & Protocol / Held-out Baseline, không mất số liệu. Deck hiện tại: **32 slide**. Số slide cũ bên dưới (1/32 ... 32/32, đánh số từ TRƯỚC cả 2 vòng cập nhật) **lệch vị trí thật** so với deck hiện tại — chỉ còn đúng về nội dung/thứ tự tương đối trong từng Phần. Số thứ tự chính xác + notes đầy đủ cho toàn bộ 32 slide nằm ở file kịch bản mới: `FairDispatch_Final_Presentation_Script_With_Heldout_Test.md` (đã cập nhật khớp deck 32 slide). Ghi chú riêng cho 3 slide Test còn lại nằm ở cuối file này, mục "PHẦN 4 (MỚI) — Held-out Test Evidence" (mục đó vẫn liệt kê 4 slide cũ — 1 slide, Validation-vs-Test Summary, đã bị bỏ; dùng file kịch bản mới làm nguồn đúng).
 
-Agenda (5 phần) không đổi: Problem & Replication Scope · Methodology & Experimental Setup · Experimental Results & Analysis · Replication Assessment & Conclusion · Product Demo.
+**Đây là bản review 32 slide** — chưa phải bản trình bày cuối cùng. Các slide chi tiết/bổ sung (per-seed summary, bảng raw...) nằm **ngay sau** slide chính mà chúng bổ trợ, trong đúng Phần của Agenda — không tách thành phụ lục riêng ở cuối. Đọc hết rồi mới quyết định slide nào giữ lại khi thuyết trình thật, cùng mentor.
+
+Agenda (6 phần) sau khi thêm Test: Problem & Replication Scope · Methodology & Experimental Setup · Experimental Results & Analysis (Validation) · Held-out Test Evidence (sau khi freeze) · Replication Assessment & Conclusion · Product Demo.
 
 Quy ước mỗi slide: **Purpose** = mục tiêu slide này phục vụ câu chuyện gì · **What to say** = ý chính cần nói (không đọc nguyên văn slide) · **Key numbers** = số phải nhớ chính xác · **Caveat** = giới hạn/điều không được overclaim · **Mentor Q** = câu hỏi mentor rất có thể hỏi ngay sau slide này.
 
@@ -196,13 +198,38 @@ Quy ước mỗi slide: **Purpose** = mục tiêu slide này phục vụ câu ch
 
 ---
 
-## PHẦN 4 — Replication Assessment & Conclusion (slide 28–29)
+## PHẦN 4 (MỚI) — Held-out Test Evidence, sau khi freeze
 
-### Slide 28/32 — Claim-by-Claim Replication Assessment
+Trước Phần 4 gốc (Replication Assessment), deck giờ có 5 slide mới nằm ngay sau Fleet-Scale Full Raw (slide cũ 27/32) và trước Claim-by-Claim (slide cũ 28/32). Đây là bằng chứng chạy MỘT LẦN trên Test sau khi mọi config đã freeze trên Validation.
+
+### Slide MỚI — Freeze + Held-out Baseline
+**Purpose:** Xác lập nguyên tắc: Test không dùng để chọn/sửa gì, chỉ chạy một lần sau khi freeze.
+**What to say:** "Sau khi chốt &lambda;/&gamma;/&alpha;, Q-table, seed trên Validation — mọi config được hash lại — em chạy một lần trên Test chưa từng đụng tới. MOMAQL Utility trên Test ≈1.454.053, Gini ≈0.2011, so với Validation 1.422.441 / 0.2037 — operating point ổn định."
+**Caveat:** Test giống bài thi cuối kỳ — không quay lại sửa model sau khi thấy điểm.
+**Key numbers:** Validation 1.422.441/0,2037 · Test 1.454.053/0,2011.
+
+### Slide MỚI — Held-out Ablation
+**What to say:** "Full vs No-Forecast: Validation +22,4% Utility, Test +17,1% — cùng hướng, biên độ nhỏ hơn. No-Forecast vẫn công bằng hơn Full trên cả hai split, 5/5 seed. No-Fairness vẫn làm bất bình đẳng tăng và Utility giảm trên cả hai."
+**Caveat:** Không nói "Forecast cải thiện fairness" — ngược lại, No-Forecast fairer, và điều này generalize sang Test.
+
+### Slide MỚI — Held-out Long-Horizon
+**What to say:** "Ngày 21: Validation +5,1%, Test +1,2%. Ngày 37: Validation +20,2%, Test +13,4%. Lợi thế Utility dài hạn generalize nhưng yếu hơn trên Test — hợp lý vì Test là dữ liệu chưa từng dùng để học Q."
+
+### Slide MỚI — Validation vs Test Summary
+**Purpose:** Slide dễ bị hiểu lầm nhất — phải nói rõ ranh giới.
+**What to say:** "13/13 phát hiện tiền xác định trên Validation lặp lại đúng hướng trên Test. Điều này chứng minh implementation behavior robust — KHÔNG có nghĩa toàn bộ 6 claim của paper được reproduce. Ví dụ C4: chính discrepancy với paper (No-Forecast fairer) mới là thứ generalize, không phải claim gốc của paper."
+**Caveat quan trọng:** "13/13 generalized" ≠ "6/6 claim paper reproduced". Đây là hai câu khác nhau, không được gộp.
+**Mentor Q:** "Vậy 13/13 nghĩa là em replicate paper rồi à?" → "Không. 13/13 nghĩa là 13 phát hiện của em trên Validation lặp lại trên Test — kể cả 4 phát hiện là discrepancy với paper. Claim matrix (slide sau) mới là verdict so với paper."
+
+---
+
+## PHẦN 5 — Replication Assessment & Conclusion (slide cũ 28–29)
+
+### Slide 28/32 — Claim-by-Claim Replication Assessment (đã đổi bảng)
 **Purpose:** Slide trả lời trực tiếp "Cuối cùng em replicate được không?" — dễ bị hiểu sai nhất nếu nói không cẩn thận.
-**What to say:** "6/6 claim đã được kiểm thử đầy đủ bằng experiment thật — khác với '6/6 claim đều reproduced hoàn toàn'. C1, C2 cùng hướng paper. C3 supported có điều kiện. C4, C5, C6 cho thấy trade-off/direction khác paper ở một phần — không phải experiment thất bại."
-**Caveat quan trọng nhất của cả deck:** KHÔNG nói "6/6 claim reproduced". Chỉ nói "6/6 claim đã được kiểm thử/đánh giá". Về C4: long-term fairness direction không reproduce theo Gini/variance — nói thẳng. Về C6: inequality direction giống paper, Utility direction khác — chỉ nửa hướng đúng.
-**Mentor Q:** "Tóm lại em replicate được không?" → one-sentence verdict cuối file.
+**What to say:** "Bảng giờ có 2 cột độc lập: Held-out Test — phát hiện có generalize đúng hướng không (13/13 có); và Paper Replication — tuyên bố gốc của paper có được xác nhận không. C1, C2 reproduced. C3 partially reproduced, được củng cố thêm bởi Test. C4 KHÔNG reproduced dù discrepancy generalize. C5, C6 partial — mỗi claim đúng một nửa (Utility hoặc Inequality), nửa còn lại (Fairness/Utility) không đúng hướng paper."
+**Caveat quan trọng nhất của cả deck:** KHÔNG nói "6/6 claim reproduced". C4 không được gọi là generalized/reproduced theo nghĩa paper — chỉ discrepancy của em mới generalize. C5 phải nói đúng: "Utility improves; Fairness does not improve (No Forecast fairer)" — không nói "cả hai đều improve".
+**Mentor Q:** "Tóm lại em replicate được không?" → one-sentence verdict cuối file: Strong Partial Trend Replication with held-out temporal support.
 
 ### Slide 29/32 — Limitations & Conclusion
 **Purpose:** Đóng phần research story bằng framing cân bằng: không phải fail/success nhị phân, cũng không overclaim.

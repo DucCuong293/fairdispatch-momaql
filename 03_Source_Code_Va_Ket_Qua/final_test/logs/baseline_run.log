@@ -1,0 +1,33 @@
+[load] loading Final Test Evaluation View (test.parquet + frozen quality transform)...
+[load] 195,506 evaluated requests loaded in 1.08s (original=195510, boundary_excluded=3, repaired=32, duration_excluded=1)
+[momaql] loaded trained Q-table with 1511 zone values
+
+=== FINAL TEST SUITE A: MAIN BASELINE (5 Policies x 5 Seeds) ===
+[Greedy        ] seed=20260721 -> Utility=$1089110.40, Gini=0.5235, Var= 34535452.33, Trips=116133 (58.3s)
+[Greedy        ] seed=20260722 -> Utility=$1082063.63, Gini=0.5256, Var= 33972862.45, Trips=115726 (55.9s)
+[Greedy        ] seed=20260723 -> Utility=$1051313.86, Gini=0.5198, Var= 32223779.17, Trips=112190 (52.5s)
+[Greedy        ] seed=20260724 -> Utility=$1062275.17, Gini=0.5216, Var= 33979797.58, Trips=113403 (56.1s)
+[Greedy        ] seed=20260725 -> Utility=$1083977.35, Gini=0.5092, Var= 32891263.28, Trips=115642 (52.8s)
+[Nearest       ] seed=20260721 -> Utility=$ 839746.31, Gini=0.4129, Var=  9982773.01, Trips=91281 (56.7s)
+[Nearest       ] seed=20260722 -> Utility=$ 883593.27, Gini=0.4190, Var= 11540246.73, Trips=96065 (54.1s)
+[Nearest       ] seed=20260723 -> Utility=$ 864718.07, Gini=0.4073, Var= 10271351.35, Trips=94092 (56.2s)
+[Nearest       ] seed=20260724 -> Utility=$ 831264.24, Gini=0.4302, Var= 11008503.76, Trips=90392 (60.0s)
+[Nearest       ] seed=20260725 -> Utility=$ 854158.01, Gini=0.4125, Var= 10088378.85, Trips=93055 (54.7s)
+[LAF           ] seed=20260721 -> Utility=$ 839600.77, Gini=0.0016, Var=      515.09, Trips=90755 (85.8s)
+[LAF           ] seed=20260722 -> Utility=$ 824123.47, Gini=0.0019, Var=      615.23, Trips=88476 (82.7s)
+[LAF           ] seed=20260723 -> Utility=$ 722815.01, Gini=0.0021, Var=      815.77, Trips=77598 (83.1s)
+[LAF           ] seed=20260724 -> Utility=$ 824554.64, Gini=0.0018, Var=      559.93, Trips=88702 (80.3s)
+[LAF           ] seed=20260725 -> Utility=$ 786424.47, Gini=0.0019, Var=      611.84, Trips=84352 (79.9s)
+[Exact REASSIGN] seed=20260721 -> Utility=$ 725208.46, Gini=0.3917, Var=  6489078.98, Trips=72780 (54.1s)
+[Exact REASSIGN] seed=20260722 -> Utility=$ 745908.70, Gini=0.4004, Var=  7482415.11, Trips=74986 (54.5s)
+[Exact REASSIGN] seed=20260723 -> Utility=$ 717310.58, Gini=0.3907, Var=  6271698.75, Trips=71892 (53.1s)
+[Exact REASSIGN] seed=20260724 -> Utility=$ 727505.25, Gini=0.4037, Var=  7160772.25, Trips=72803 (54.1s)
+[Exact REASSIGN] seed=20260725 -> Utility=$ 736340.43, Gini=0.4090, Var=  7394718.82, Trips=74025 (53.2s)
+[MOMAQL        ] seed=20260721 -> Utility=$1458488.12, Gini=0.1970, Var=  7518819.96, Trips=156246 (54.5s)
+[MOMAQL        ] seed=20260722 -> Utility=$1450544.06, Gini=0.1952, Var=  7541335.88, Trips=155451 (54.2s)
+[MOMAQL        ] seed=20260723 -> Utility=$1454736.08, Gini=0.2186, Var= 10088116.64, Trips=156448 (54.6s)
+[MOMAQL        ] seed=20260724 -> Utility=$1441595.70, Gini=0.1930, Var=  6984783.29, Trips=154204 (55.4s)
+[MOMAQL        ] seed=20260725 -> Utility=$1464900.61, Gini=0.2017, Var=  8104973.68, Trips=157025 (57.3s)
+
+[done] wrote 25 runs to D:\ProjectVSF\FairDispatch_MOMAQL_Fair_Ride_Hailing_Dispatch_Replication\03_Source_Code_Va_Ket_Qua\final_test\baseline\test_baseline_per_seed.csv
+[done] wrote summary to D:\ProjectVSF\FairDispatch_MOMAQL_Fair_Ride_Hailing_Dispatch_Replication\03_Source_Code_Va_Ket_Qua\final_test\baseline\test_baseline_summary.csv

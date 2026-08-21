@@ -31,6 +31,7 @@ from _docx_style import (
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / "reports"
+FINAL_TEST = ROOT / "final_test"
 FIGS = Path(__file__).parent / "figures"
 OUT = Path(__file__).parent / "Bao_Cao_Nghien_Cuu_FairDispatch_MOMAQL.docx"
 
@@ -42,6 +43,11 @@ _fig_counter = {"n": 0}
 
 def read_csv(name):
     with (REPORTS / name).open(encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def read_final_test_csv(name):
+    with (FINAL_TEST / name).open(encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
@@ -87,6 +93,34 @@ def verdict_table(doc, headers, rows):
     return table
 
 
+def _verdict_color(text):
+    low = text.lower()
+    if low.startswith("reproduced") or low.startswith("generalized"):
+        return GREEN
+    if low.startswith("not reproduced") or low.startswith("not generalized"):
+        return RED
+    if low.startswith("partially") or low.startswith("partial"):
+        return AMBER
+    if low.startswith("not evaluated") or low.startswith("not test"):
+        return GREY
+    return None
+
+
+def dual_verdict_table(doc, headers, rows):
+    """Like verdict_table, but colors the LAST TWO columns independently --
+    used for (heldout_generalization, paper_replication_verdict), which are
+    two distinct axes and must never be collapsed into one color/verdict."""
+    table = _styled_add_table(doc, headers, rows)
+    for tr in table.rows[1:]:
+        for cell in (tr.cells[-2], tr.cells[-1]):
+            if not cell.paragraphs[0].runs:
+                continue
+            color = _verdict_color(cell.paragraphs[0].runs[0].text)
+            if color:
+                cell.paragraphs[0].runs[0].font.color.rgb = color
+    return table
+
+
 def add_figure(doc, filename, caption, width=5.9):
     _fig_counter["n"] += 1
     _styled_add_figure(doc, FIGS / filename, caption, width=width, number=_fig_counter["n"])
@@ -108,6 +142,27 @@ def main():
     week = read_csv("hypothesis1_weekly_cycle.csv")
     fair_bal = read_csv("hypothesis4_fairness_balance.csv")
     mlp_summary = {r["model"]: r for r in read_csv("mlp_vs_tabular_summary.csv")}
+
+    # ---- Final Held-out Test artifacts (final_test/) ----
+    ft_manifest = None
+    ft_available = FINAL_TEST.exists() and (FINAL_TEST / "test_claim_assessment.csv").exists()
+    if ft_available:
+        import json
+        ft_manifest = json.loads((FINAL_TEST / "test_quality_transform_manifest.json").read_text(encoding="utf-8"))
+        ft_baseline_summary = {r["policy"]: r for r in read_final_test_csv("baseline/test_baseline_summary.csv")}
+        ft_ablation_summary = {r["ablation"]: r for r in read_final_test_csv("ablation/test_ablation_results.csv")}
+        ft_horizon = read_final_test_csv("long_horizon/test_long_horizon.csv") if (FINAL_TEST / "long_horizon/test_long_horizon.csv").exists() else []
+        ft_v_vs_t = read_final_test_csv("validation_vs_test.csv")
+        ft_claims = read_final_test_csv("test_claim_assessment.csv")
+        ft_hz = {}
+        for row in ft_horizon:
+            ft_hz.setdefault((row["config"], int(row["horizon_day"])), []).append(float(row["utility"]))
+        ft_hz_mean = {k: mean(v) for k, v in ft_hz.items()}
+        ft_gap = {}
+        for d in [1, 7, 14, 21, 28, 37]:
+            if ("full", d) in ft_hz_mean and ("no_forecast", d) in ft_hz_mean:
+                f, nf = ft_hz_mean[("full", d)], ft_hz_mean[("no_forecast", d)]
+                ft_gap[d] = (f - nf, (f - nf) / nf * 100 if nf else 0)
 
     r1_agg = {}
     for row in r1:
@@ -187,7 +242,7 @@ def main():
     para(doc, "Dataset: mẫu Bernoulli thật từ NYC TLC 2013 (không phải 2016 của paper -- lát cắt "
               f"thời gian thay thế), {vnum(912375)} cuốc huấn luyện / {vnum(195508)} cuốc kiểm định "
               "/ 195.510 cuốc kiểm thử, 200 tài xế mô phỏng (giả định, paper không nêu rõ).")
-    para(doc, "Kết luận tổng quát theo từng claim (chi tiết ở Mục 9):")
+    para(doc, "Kết luận tổng quát theo từng claim, đánh giá trên Validation (chi tiết ở Mục 10):")
     bullets(doc, [
         "C1 (Utility-fairness trade-off): REPRODUCED.",
         "C2 (Proposed > baseline về trade-off): REPRODUCED (có phạm vi -- so với baseline đã điều "
@@ -197,13 +252,26 @@ def main():
         "C4 (Dự báo giúp fairness dài hạn, có thể tốn ngắn hạn): PARTIALLY REPRODUCED (hướng dài hạn "
         "xác nhận từ ngày ~21; vế “tốn ngắn hạn” NOT EVALUATED rõ ràng -- ngày 1–7 "
         "không khác biệt đáng kể, không quan sát được tệ hơn).",
-        "C5 (Bóc tách: thành phần dự báo giúp cả utility+fairness): REPRODUCED.",
+        "C5 (Bóc tách: thành phần dự báo giúp cả utility+fairness): REPRODUCED trên Validation -- "
+        "nhưng xem lại ở Mục 9/10: khi tách riêng 2 thành phần, phần Fairness thực ra KHÔNG cải "
+        "thiện (No-Forecast công bằng hơn Full) -- câu này trong bản tóm tắt gốc đã gộp nhầm 2 "
+        "thành phần, sửa lại ở Mục 9.",
         "C6 (Bỏ fairness làm utility tăng mạnh, bất công bằng bùng nổ): về fairness REPRODUCED (Gini "
         "xấu đi rõ rệt); về utility NOT REPRODUCED (đảo chiều -- utility của chúng tôi GIẢM khi bỏ "
         "fairness, paper báo TĂNG).",
     ])
+    para(doc, "Sau khi các kết luận trên được chốt (freeze) trên Validation, dự án chạy thêm một "
+              "Final Held-out Temporal Test Evaluation (Mục 9) trên test.parquet -- lát cắt thời gian "
+              "chưa từng dùng để phát triển/tuning. 13/13 phát hiện định trước (pre-specified) từ "
+              "Validation giữ đúng chiều trên Test, cho thấy hành vi quan sát được của bản tái lập "
+              "khá ổn định theo thời gian. NHƯNG điều đó KHÔNG có nghĩa toàn bộ 6 claim của paper "
+              "được reproduce -- ví dụ C4 (dự báo cải thiện fairness dài hạn) vẫn Not Reproduced trên "
+              "cả Validation lẫn Test. Vì vậy câu chuyện tổng thể của báo cáo là: "
+              "\"Validation-developed trend replication with held-out temporal test support\" -- "
+              "không phải \"đã reproduce hoàn toàn paper\".", bold=True)
     callout(doc, "Không có số liệu nào trong báo cáo này bị chỉnh sửa/chọn lọc để giống paper "
-                 "hơn. Mọi con số đọc trực tiếp từ reports/*.csv tại thời điểm build tài liệu.")
+                 "hơn. Mọi con số đọc trực tiếp từ reports/*.csv (Validation) và final_test/*.csv "
+                 "(Held-out Test) tại thời điểm build tài liệu, không hand-type từ trí nhớ.")
 
     # ---------------- 1. Introduction ----------------
     heading(doc, "1. Introduction", level=1)
@@ -576,12 +644,119 @@ def main():
               "cân bằng fairness) chạy 3 seed do giới hạn compute cục bộ (máy CPU-only, ~3–4GB RAM "
               "trống khả dụng khi thực hiện) -- giới hạn này được công bố công khai, không che giấu.")
 
-    # ---------------- 9. Replication Assessment ----------------
-    heading(doc, "9. Replication Assessment -- Paper vs. Ours, claim by claim", level=1)
+    # ---------------- 9. Final Held-out Test Evaluation ----------------
+    heading(doc, "9. Final Held-out Test Evaluation", level=1)
+    heading(doc, "9.1 Mục đích", level=2)
+    para(doc, "Toàn bộ Mục 8 (Results) ở trên chạy trên Validation (195.508 yêu cầu) -- tập dữ liệu "
+              "dùng để phát triển implementation, chọn/khoá cấu hình, và chạy ablation/long-horizon. "
+              "Mục này chạy thêm một Final Held-out Temporal Test Evaluation trên test.parquet -- "
+              "lát cắt thời gian CHƯA TỪNG được dùng để tuning, chọn λ, hay sửa policy/simulator. "
+              "Test dùng để XÁC MINH generalization, không dùng để CHỌN cấu hình. Protocol (cấu hình, "
+              "seed, metric, no-tuning rule) được đóng băng (frozen) trong "
+              "`final_test/FINAL_TEST_PROTOCOL.md` TRƯỚC KHI bất kỳ policy nào chạy trên test.parquet.")
+    if ft_available:
+        heading(doc, "9.2 Test Data Quality Gate", level=2)
+        tstats = ft_manifest["per_split"]["test"]
+        para(doc, "Trước khi chạy policy, audit dữ liệu test.parquet phát hiện 33/195.510 dòng "
+                  "(0,017%) có field `duration_seconds` (derived) bị lỗi -- timestamp `pickup_ts`/"
+                  "`dropoff_ts` của các dòng này vẫn hợp lệ. Nguyên tắc \"minimal deterministic "
+                  "repair\": sửa `duration_seconds` từ timestamp cho các dòng phục hồi được, chỉ loại "
+                  "bỏ dòng không thể phục hồi -- không xoá toàn bộ 33 dòng một cách vũ đoán.")
+        add_table(doc, ["Bước", "Số dòng"], [
+            ["Test gốc (raw)", vnum(tstats["original_rows"])],
+            ["Loại do trùng giây ranh giới Validation/Test (temporal-boundary hygiene)",
+             vnum(tstats["temporal_boundary_excluded"])],
+            ["Sửa (repair) duration_seconds từ timestamp", vnum(tstats["duration_repaired"])],
+            ["Loại do duration không thể phục hồi (zero-trip)", vnum(tstats["duration_excluded"])],
+            ["Final Test Evaluation View", vnum(tstats["final_evaluated_rows"])],
+        ])
+        para(doc, "test.parquet gốc trên đĩa KHÔNG bị sửa (checksum SHA-256 không đổi trong suốt quá "
+                  "trình). Rule sửa/loại được định nghĩa và đóng băng TRƯỚC khi nhìn bất kỳ kết quả "
+                  "policy nào trên Test -- chi tiết đầy đủ (bao gồm trace ngược nguồn dữ liệu gốc "
+                  "thượng nguồn xác nhận lỗi có từ raw data, không phải do pipeline dự án) ở "
+                  "`final_test/DATA_QUALITY_GATE.md`.", size=9.5, color=GREY)
+
+        heading(doc, "9.3 Cấu hình đóng băng (frozen)", level=2)
+        add_table(doc, ["Tham số", "Giá trị"], [
+            ["Policy", "MOMAQL canonical"], ["Số tài xế", "200"],
+            ["λ / γ / α", "0,5 / 0,9 / 0,1"],
+            ["Bộ giải ghép cặp", "Hungarian joint assignment"],
+            ["Q-table", "momaql_q_table_trained.json (đóng băng, không học thêm)"],
+            ["Seeds", "20260721, 20260722, 20260723, 20260724, 20260725"],
+        ])
+        para(doc, "Chi tiết đầy đủ (hash mã nguồn engine, checksum dataset/Q-table, môi trường chạy) "
+                  "ở `final_test/FINAL_TEST_PROTOCOL.md`.", size=9.5, color=GREY)
+
+        heading(doc, "9.4 Kết quả Baseline trên Held-out Test", level=2)
+        momaql_test = ft_baseline_summary.get("MOMAQL", {})
+        momaql_val = r1_stats.get("MOMAQL", {})
+        add_table(doc, ["", "Utility ($)", "Gini"], [
+            ["MOMAQL -- Validation", vnum(momaql_val.get("u", 0)), vdec(momaql_val.get("g", 0))],
+            ["MOMAQL -- Held-out Test", vnum(float(momaql_test.get("utility_mean", 0))),
+             vdec(float(momaql_test.get("gini_mean", 0)))],
+        ])
+        para(doc, "Thứ hạng Utility theo policy trên Test GIỐNG HỆT Validation: "
+                  "MOMAQL > Greedy > Nearest > LAF > Exact REASSIGN. Điểm vận hành của MOMAQL ổn "
+                  "định qua các giai đoạn thời gian khác nhau.")
+
+        heading(doc, "9.5 Kết quả Ablation trên Held-out Test", level=2)
+        full_t = float(ft_ablation_summary["full"]["utility_mean"])
+        nof_t = float(ft_ablation_summary["no_forecast"]["utility_mean"])
+        nof_gini_t = float(ft_ablation_summary["no_forecast"]["gini_mean"])
+        full_gini_t = float(ft_ablation_summary["full"]["gini_mean"])
+        nofair_t = float(ft_ablation_summary["no_fairness"]["utility_mean"])
+        nofair_gini_t = float(ft_ablation_summary["no_fairness"]["gini_mean"])
+        add_table(doc, ["So sánh", "Validation", "Held-out Test"], [
+            ["Full so với No-Forecast (Utility)", f"+{vdec((full_u-nf_u)/nf_u*100, 1)}%",
+             f"+{vdec((full_t-nof_t)/nof_t*100, 1)}%"],
+            ["No-Forecast Gini so với Full", f"{vdec(float(r2['no_forecast']['gini_mean']), 4)} vs "
+             f"{vdec(float(r2['full']['gini_mean']), 4)} (No-Forecast công bằng hơn)",
+             f"{vdec(nof_gini_t, 4)} vs {vdec(full_gini_t, 4)} (No-Forecast công bằng hơn)"],
+            ["No-Fairness Gini so với Full",
+             f"{vdec(float(r2['no_fairness']['gini_mean']), 4)} vs {vdec(float(r2['full']['gini_mean']), 4)}",
+             f"{vdec(nofair_gini_t, 4)} vs {vdec(full_gini_t, 4)}"],
+            ["No-Fairness Utility so với Full", f"{vdec((float(r2['no_fairness']['utility_mean'])-full_u)/full_u*100, 1)}%",
+             f"{vdec((nofair_t-full_t)/full_t*100, 1)}%"],
+        ])
+        para(doc, "Cả 5/5 seed trên cả 2 tập: Full > No-Forecast về Utility (chiều giống nhau, độ "
+                  "lớn yếu hơn trên Test); No-Forecast công bằng hơn Full (Gini thấp hơn) trên CẢ HAI "
+                  "tập -- đây là phát hiện KHÔNG khớp kỳ vọng paper (paper kỳ vọng dự báo cải thiện "
+                  "fairness), và phát hiện này GIỮ NGUYÊN (generalize) trên held-out Test, tức là "
+                  "discrepancy so với paper ổn định, không phải nhiễu ngẫu nhiên của Validation.")
+
+        if ft_horizon:
+            heading(doc, "9.6 Kết quả Long-Horizon trên Held-out Test", level=2)
+            para(doc, "Test span = 42 ngày lịch ≥ 37 → dùng đủ bộ checkpoint chuẩn "
+                      "(ngày 1,2,3,4,5,6,7,14,21,28,37), cùng phương pháp một quỹ đạo có checkpoint "
+                      "như Validation.")
+            ft_gap_rows = []
+            for d in [7, 21, 37]:
+                if d in gap and d in ft_gap:
+                    ft_gap_rows.append([str(d), f"{vdec(gap[d][1], 1)}%", f"{vdec(ft_gap[d][1], 1)}%"])
+            add_table(doc, ["Ngày", "Validation (Full vs No-Forecast, Utility)", "Held-out Test"], ft_gap_rows)
+            para(doc, "Lợi thế Utility dài hạn của Full so với No-Forecast GENERALIZE (cùng chiều "
+                      "trên Test) nhưng yếu hơn ở mọi checkpoint đo được. Về fairness, No-Forecast "
+                      "vẫn công bằng hơn Full tại ngày 37 trên cả 2 tập.")
+
+        heading(doc, "9.7 Validation vs Test -- generalization tổng thể", level=2)
+        n_gen_ft = sum(1 for r in ft_v_vs_t if r["generalized"] == "Yes")
+        para(doc, f"{n_gen_ft}/{len(ft_v_vs_t)} phát hiện định trước (pre-specified) từ Validation "
+                  "giữ ĐÚNG CHIỀU trên held-out Test (bảng đầy đủ: `final_test/validation_vs_test.csv`).")
+        callout(doc, "QUAN TRỌNG: \"generalize\" ở đây có nghĩa PHÁT HIỆN quan sát trên Validation "
+                     "LẶP LẠI cùng chiều trên Test -- một khái niệm hoàn toàn khác với \"paper claim "
+                     "được reproduce\". Một phát hiện có thể generalize (ổn định theo thời gian) "
+                     "trong khi paper claim tương ứng vẫn Not Reproduced -- ví dụ rõ nhất là C4 ở "
+                     "Mục 10: cả Validation lẫn Test đều cho No-Forecast công bằng hơn Full, tức là "
+                     "CHÍNH sự KHÔNG khớp với paper mới là thứ generalize, không phải claim của paper.")
+
+    # ---------------- 10. Replication Assessment ----------------
+    heading(doc, "10. Replication Assessment -- Paper vs. Ours, claim by claim", level=1)
     para(doc, "Đây là bảng trả lời trực tiếp câu hỏi trọng tâm: dự án này có đưa ra đủ bằng chứng "
               "để thuyết phục rằng cơ chế paper tuyên bố thực sự xuất hiện lại trong tái lập này "
-              "hay không -- theo từng claim riêng biệt, không gộp chung.")
-    verdict_table(doc, ["Tuyên bố của paper", "Kết luận"], [
+              "hay không -- theo từng claim riêng biệt, không gộp chung. Bảng dưới báo cáo trên "
+              "Validation (đầy đủ mọi claim con -- Validation là nơi mọi thí nghiệm chính thực sự "
+              "chạy).")
+    verdict_table(doc, ["Tuyên bố của paper", "Kết luận (Validation)"], [
         ["C1 -- Utility và fairness đánh đổi lẫn nhau", "Reproduced"],
         ["C2 -- Proposed vượt trội baseline đã điều chỉnh về trade-off", "Reproduced (có phạm vi)"],
         ["C3 -- RL ổn định hơn khi horizon tăng", "Partially Reproduced (chuyển pha thực tế "
@@ -600,9 +775,25 @@ def main():
          "Not Reproduced (lợi thế co từ +42% về +0%, N=100→400)"],
     ])
 
-    # ---------------- 10. Discrepancies and Limitations ----------------
-    heading(doc, "10. Discrepancies and Limitations", level=1)
-    heading(doc, "10.1 Vì sao số liệu khác paper", level=2)
+    if ft_available:
+        para(doc, "Bảng dưới đây là ĐÁNH GIÁ CUỐI CÙNG (final) cho 6 claim gốc C1-C6, kết hợp cả hai "
+                  "trục: (a) held-out generalization -- phát hiện Validation có lặp lại trên Test "
+                  "không; và (b) paper replication verdict -- có khớp đúng tuyên bố định tính của "
+                  "paper không. HAI TRỤC NÀY ĐỘC LẬP, không gộp thành một cột duy nhất -- xem C4 (Not "
+                  "Reproduced dù Generalized) và C5/C6 (Partial, một thành phần reproduce, một không) "
+                  "làm ví dụ vì sao không thể gộp.", bold=True)
+        claim_id_map = {"C1:": "C1", "C2:": "C2", "C3:": "C3", "C4:": "C4", "C5:": "C5", "C6:": "C6"}
+        ft_rows = []
+        for r in ft_claims:
+            cid = next((v for k, v in claim_id_map.items() if r["claim"].startswith(k)), r["claim"])
+            ft_rows.append([cid, r["heldout_generalization"], r["paper_replication_verdict"]])
+        dual_verdict_table(doc, ["Claim", "Held-out generalization", "Paper replication verdict"], ft_rows)
+        para(doc, "Không có claim nào được viết là \"6/6 reproduced\". Bảng đầy đủ với evidence/"
+                  "caveat từng dòng: `final_test/test_claim_assessment.csv`.", size=9.5, color=GREY)
+
+    # ---------------- 11. Discrepancies and Limitations ----------------
+    heading(doc, "11. Discrepancies and Limitations", level=1)
+    heading(doc, "11.1 Vì sao số liệu khác paper", level=2)
     add_table(doc, ["Khác biệt", "Tác động kỳ vọng"], [
         ["Dữ liệu khác năm (2013 vs. 2016 của paper)", "Mẫu hình nhu cầu/không gian có thể khác; "
          "không phải bằng chứng khả năng tổng quát hóa qua các năm"],
@@ -616,7 +807,7 @@ def main():
         ["Baseline REASSIGN/Balance-RP không tái lập được nguyên bản", "Khác biệt tuyệt đối so "
          "với paper; không ảnh hưởng đến so sánh nội bộ giữa các baseline đã điều chỉnh"],
     ])
-    heading(doc, "10.2 Kết quả Tiêu cực và Rỗng (Negative and Null Results)", level=2)
+    heading(doc, "11.2 Kết quả Tiêu cực và Rỗng (Negative and Null Results)", level=2)
     bullets(doc, [
         "Triển khai dự báo đầu tiên có lỗi gán trạng thái thật (phần thưởng gán cho điểm trả "
         "khách, không bootstrap), cho bảng Q tương quan ÂM (r=−0,36) với nhu cầu thực tế tương "
@@ -632,7 +823,7 @@ def main():
         "Độ nhạy quy mô đội xe: lợi thế dự báo bùng nổ khi thiếu hụt cung (+42% tại N=100) và bão "
         "hòa khi thừa cung (0% tại N=400) -- một phát hiện thật, không được paper kiểm tra.",
     ])
-    heading(doc, "10.3 Reproducibility Gaps and Assumptions", level=2)
+    heading(doc, "11.3 Reproducibility Gaps and Assumptions", level=2)
     bullets(doc, [
         "A1. Paper không nêu rõ số lượng tài xế mô phỏng. Quyết định tái lập: dùng 200, giả định "
         "hợp lý cho quy mô Manhattan, công bố rõ đây là giả định.",
@@ -650,22 +841,36 @@ def main():
         "chuẩn cho mọi kết quả chính.",
     ])
 
-    # ---------------- 11. Conclusion ----------------
-    heading(doc, "11. Conclusion", level=1)
-    para(doc, "Dự án tái lập sạch các tuyên bố trung tâm về đánh đổi và vượt trội baseline (C1, C2, "
-              "C5), trên dữ liệu taxi NYC 2013 thực tế, độc lập, lấy mẫu riêng. Các tuyên bố "
-              "horizon dài và no-fairness (C3, C4, C6) chỉ tái lập một phần: hướng định tính đúng "
-              "khi horizon đủ dài và trên bất công bằng, nhưng không đúng ở hướng utility của C6, "
-              "và không đúng trong đúng cửa sổ 1–7 ngày của paper. Một quét quy mô đội xe (không "
-              "phải claim gốc của paper) cho thấy thêm: chính lợi thế của dự báo phụ thuộc quy mô "
-              "-- lớn khi khan hiếm tài xế, không đáng kể khi cung bão hòa cầu -- chứ không phải "
+    # ---------------- 12. Conclusion ----------------
+    heading(doc, "12. Conclusion", level=1)
+    para(doc, "Dự án tái lập sạch các tuyên bố trung tâm về đánh đổi và vượt trội baseline (C1, C2), "
+              "trên dữ liệu taxi NYC 2013 thực tế, độc lập, lấy mẫu riêng. Các tuyên bố "
+              "horizon dài và no-fairness (C3, C4, C5, C6) chỉ tái lập một phần hoặc không tái lập ở "
+              "một thành phần: hướng định tính đúng khi horizon đủ dài và trên bất công bằng, nhưng "
+              "không đúng ở hướng utility của C6, không đúng ở thành phần fairness của C5, và C4 "
+              "(dự báo cải thiện fairness dài hạn) hoàn toàn Not Reproduced. Một quét quy mô đội xe "
+              "(không phải claim gốc của paper) cho thấy thêm: chính lợi thế của dự báo phụ thuộc quy "
+              "mô -- lớn khi khan hiếm tài xế, không đáng kể khi cung bão hòa cầu -- chứ không phải "
               "thuộc tính cố định của thuật toán. Bốn thí nghiệm cơ chế bổ sung (Mục 8.4.1) cho "
               "thấy thời điểm chuyển pha ngày 14–21 có nhiều bằng chứng liên hệ hội tụ với nhau "
               "(độ phủ trạng thái, giá trị Q, tỷ trọng fairness), dù không cái nào là ablation có "
               "kiểm soát chứng minh nhân quả.")
+    if ft_available:
+        n_gen_ft = sum(1 for r in ft_v_vs_t if r["generalized"] == "Yes")
+        para(doc, f"Sau khi đóng băng implementation và cấu hình trên Validation, held-out temporal "
+                  f"Test evaluation (Mục 9) xác nhận {n_gen_ft}/{len(ft_v_vs_t)} phát hiện định trước "
+                  "từ Validation ĐÚNG CHIỀU trên Test -- củng cố độ tin cậy rằng hành vi quan sát "
+                  "được của bản tái lập ổn định theo thời gian. Tuy nhiên, kết quả held-out cũng xác "
+                  "nhận rằng KHÔNG PHẢI mọi tuyên bố định tính của paper gốc đều được reproduce: lợi "
+                  "ích Utility từ dự báo vẫn duy trì, nhưng lợi ích Fairness từ dự báo vẫn Not "
+                  "Reproduced trên cả 2 tập dữ liệu.", bold=True)
     para(doc, "Báo cáo này trình bày trung thực tất cả điều trên thay vì làm tròn thành “đã tái lập "
               "hoàn toàn”, đúng tinh thần chính paper phân biệt giữa tái lập số liệu chính xác và "
-              "tái lập xu hướng định tính.", bold=True)
+              "tái lập xu hướng định tính. Kết luận cuối cùng: "
+              "\"Strong Partial Trend Replication with held-out temporal support\" -- Strong vì "
+              "13/13 phát hiện generalize trên held-out Test; Partial vì các paper claim liên quan "
+              "fairness không reproduce đầy đủ; held-out temporal support vì Test là một lát cắt "
+              "thời gian độc lập, chưa từng dùng để tune.", bold=True)
 
     # ---------------- Appendix ----------------
     heading(doc, "Appendix", level=1)

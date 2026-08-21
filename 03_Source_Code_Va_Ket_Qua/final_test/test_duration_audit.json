@@ -1,0 +1,65 @@
+{
+  "finding": "test.parquet has 33 rows where the STORED duration_seconds field is corrupted (~4.25-4.29 million seconds, ~1187-1193 hours), but the actual pickup_ts/dropoff_ts timestamps for those same rows are normal and close together (computed duration 0s-4h, median well under 1h) -- the timestamps are fine, only duration_seconds is wrong.",
+  "rows_affected": 33,
+  "rows_affected_pct": 0.016879,
+  "classification": "A (stored duration_seconds field bug; pickup/dropoff timestamps normal) for 32/33 rows; 1/33 (row_idx 164421) has pickup_ts==dropoff_ts exactly (degenerate zero-duration placeholder, computed duration genuinely 0, still duration_seconds field is wrong).",
+  "computed_duration_of_the_33_rows": {
+    "min_s": 0.0,
+    "max_s": 14440.0,
+    "median_s": 1488.0,
+    "all_under_4h": false
+  },
+  "upstream_trace": "Traced trip_key 522975df... (row_idx 164421) directly against the upstream canonical source (restricted_data/foil_2013_legacy/09_canonical/realistic_2013_splits/development/source_month=08/part-000.parquet) via source_row_number=10607937: duration_seconds=4294815 and quality_flag_bitset=0 already present upstream, byte-identical to test.parquet. This repo's build_sample.py/merge_split.py do a pure SELECT * passthrough (no duration computation/cleaning anywhere in either script) -- see preprocessing_duration_audit.md.",
+  "preprocessing_identical_across_splits": true,
+  "existing_quality_flag_catches_this": false,
+  "split_comparison": [
+    {
+      "split": "train",
+      "rows": 912375,
+      "duration_le_0": 0,
+      "gt_4h": 0,
+      "gt_6h": 0,
+      "gt_12h": 0,
+      "gt_24h": 0,
+      "max_duration_s": 8640.0,
+      "max_duration_hours": 2.4,
+      "p95_s": 1363.0,
+      "p99_s": 1860.0,
+      "p999_s": 2690.0,
+      "stored_ne_computed_count": 27260,
+      "stored_ne_computed_extreme_ge_4200000s_count": 0
+    },
+    {
+      "split": "val",
+      "rows": 195508,
+      "duration_le_0": 0,
+      "gt_4h": 0,
+      "gt_6h": 0,
+      "gt_12h": 0,
+      "gt_24h": 0,
+      "max_duration_s": 8640.0,
+      "max_duration_hours": 2.4,
+      "p95_s": 1407.0,
+      "p99_s": 1936.0,
+      "p999_s": 2888.4510000001173,
+      "stored_ne_computed_count": 2454,
+      "stored_ne_computed_extreme_ge_4200000s_count": 0
+    },
+    {
+      "split": "test",
+      "rows": 195510,
+      "duration_le_0": 0,
+      "gt_4h": 33,
+      "gt_6h": 33,
+      "gt_12h": 33,
+      "gt_24h": 33,
+      "max_duration_s": 4294815.0,
+      "max_duration_hours": 1193.004,
+      "p95_s": 1380.0,
+      "p99_s": 1910.0,
+      "p999_s": 3147.910000000091,
+      "stored_ne_computed_count": 306,
+      "stored_ne_computed_extreme_ge_4200000s_count": 33
+    }
+  ]
+}

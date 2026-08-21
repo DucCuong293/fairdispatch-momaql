@@ -28,12 +28,11 @@
           <li><span class="num">01</span><span>Bài toán &amp; Phạm vi tái lập <span class="en">(Problem &amp; Replication Scope)</span></span></li>
           <li><span class="num">02</span><span>Phương pháp &amp; Thiết lập thực nghiệm <span class="en">(Methodology &amp; Experimental Setup)</span></span></li>
           <li><span class="num">03</span><span>Kết quả thực nghiệm &amp; Phân tích <span class="en">(Experimental Results &amp; Analysis)</span></span></li>
-          <li><span class="num">04</span><span>Bằng chứng Held-out Test <span class="en">(Held-out Test Evidence, sau khi freeze)</span></span></li>
-          <li><span class="num">05</span><span>Đánh giá tái lập &amp; Kết luận <span class="en">(Replication Assessment &amp; Conclusion)</span></span></li>
-          <li><span class="num">06</span><span>Demo sản phẩm <span class="en">(Product Demo)</span></span></li>
+          <li><span class="num">04</span><span>Đánh giá tái lập &amp; Kết luận <span class="en">(Replication Assessment &amp; Conclusion)</span></span></li>
+          <li><span class="num">05</span><span>Demo sản phẩm <span class="en">(Product Demo)</span></span></li>
         </ul>
       </div>
-      <div class="footer"><span>Phần 1&ndash;5: research story &middot; Phần 6: placeholder</span><span class="counter"></span></div>
+      <div class="footer"><span>Phần 1&ndash;4: research story &middot; Phần 5: placeholder</span><span class="counter"></span></div>
     </section>
 
     <!-- ============ SLIDE 3 -- RESEARCH PROBLEM ============ -->
@@ -80,7 +79,7 @@
           <div class="claim-chip"><strong>Look-ahead</strong><br>fare hiện tại + future zone value</div>
         </div>
       </div>
-      <div class="footer"><span>Cơ chế opportunity cost giải thích trực giác cho các kết quả long-horizon ở Phần 3</span><span class="counter"></span></div>
+      <div class="footer"><span>Cơ chế này được kiểm chứng ở Mechanism Probe (slide 24)</span><span class="counter"></span></div>
     </section>
 
     <!-- ============ SLIDE 5 -- ORIGINAL PAPER CLAIMS ============ -->
@@ -172,7 +171,7 @@
           <tr><td class="hl">Nearest</td><td>score = (600 &minus; ETA) &times; 0,0025 &mdash; argmax(score) &equiv; argmin(ETA)</td></tr>
           <tr><td class="hl">LAF</td><td>Lowest Accumulated Fare: score = [(mean_income &minus; driver.income)/mean_income] &times; fare</td></tr>
           <tr><td class="hl">Exact REASSIGN</td><td>score = fare &minus; deadhead_cost, joint M-to-N mỗi 60s, khớp formulation gốc của paper</td></tr>
-          <tr><td class="hl">MOMAQL</td><td>Xem slide sau &mdash; online TD(0) trên (zone, hour)</td></tr>
+          <tr><td class="hl">MOMAQL</td><td>Xem slide 12 &mdash; online TD(0) trên (zone, hour)</td></tr>
         </table>
       </div>
       <p class="note">Cả 5 policy đều đi qua cùng <code>hungarian_batch_assign</code> với dummy decline &mdash; chỉ score function khác nhau.</p>
@@ -217,10 +216,33 @@
         <div class="col">
           <p class="note">Q(zone,hour) = look-ahead value proxy &mdash; không phải demand-count predictor của paper.</p>
           <p class="note">Cả 5 policy dùng chung Hungarian solver, chỉ khác score function này.</p>
-          <p class="note">Công thức đầy đủ + TD(0) update trong mã nguồn: src/policies.py, class MOMAQLPolicy (_score, on_committed).</p>
+          <p class="note">Công thức đầy đủ + TD(0) update: slide 12.</p>
         </div>
       </div>
       <div class="footer"><span>Nguồn: src/policies.py, class MOMAQLPolicy</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 12 -- PROJECT SCORE + TD(0) FORMULA (FULL) ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 2 &middot; Methodology &amp; Experimental Setup</div>
+      <div class="headline">Công thức đầy đủ: project score &amp; TD(0) update</div>
+      <div class="formula">score = (1&minus;&lambda;) &times; [fare &minus; deadhead_cost + &gamma; &times; Q(D_zone, D_hour)]
+        + &lambda; &times; [(mean_income &minus; driver.income) / mean_income] &times; fare
+
+deadhead_cost = pickup_eta_seconds &times; 0,0025 USD/giây
+
+TD(0), state S = (pickup_zone, pickup_hour):
+  Q(S) &larr; Q(S) + &alpha; &times; [reward + &gamma;&middot;Q(S') &minus; Q(S)]
+  reward = fare &minus; deadhead_cost
+  S' = (dropoff_zone, dropoff_hour)
+
+Ablation:
+  no_forecast &rArr; Q_future ép về 0
+  no_fairness &rArr; &lambda; ép về 0
+
+Mặc định: &lambda;=0,5 &middot; &gamma;=0,9 &middot; &alpha;=0,1</div>
+      <p class="note">Paper dùng utility + variance fairness với hệ số &lambda;/&sigma; riêng &mdash; scalarisation của project không tương đương toán học, nên &lambda; của hai bên <strong>không</strong> so sánh trực tiếp được.</p>
+      <div class="footer"><span>Nguồn: src/policies.py, class MOMAQLPolicy (_score, on_committed)</span><span class="counter"></span></div>
     </section>
 
     <!-- ============ SLIDE 13 -- DATASET & PROTOCOL ============ -->
@@ -544,7 +566,7 @@ Epochs: 30, batch = 2048</div>
         <p class="note" style="font-style:normal;"><strong style="color:var(--navy);">Quan sát 1</strong> &mdash; Full và No-Forecast gần như trùng nhau đến ngày 14.</p>
         <p class="note" style="font-style:normal;"><strong style="color:var(--navy);">Quan sát 2</strong> &mdash; Utility tách rõ từ ngày 21, đạt +20,19% ở ngày 37.</p>
       </div>
-      <p class="source">Checkpoint: ngày 1,2,3,4,5,6,7,14,21,28,37 (một trajectory, trục không tuyến tính) &middot; trung bình 5 seed &middot; bảng đầy đủ: slide sau.</p>
+      <p class="source">Checkpoint: ngày 1,2,3,4,5,6,7,14,21,28,37 (một trajectory, trục không tuyến tính) &middot; trung bình 5 seed &middot; bảng đầy đủ: slide 23.</p>
       <div class="footer"><span>Nguồn: reports/multi_horizon_results.csv</span><span class="counter"></span></div>
     </section>
 
@@ -631,6 +653,63 @@ Epochs: 30, batch = 2048</div>
       <div class="footer"><span>Nguồn: reports/multi_horizon_results.csv (166 dòng gốc, đã aggregate 5 seed)</span><span class="counter"></span></div>
     </section>
 
+    <!-- ============ SLIDE 24 -- MECHANISM PROBE ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Các policy chỉ phân kỳ sau khi look-ahead đủ ảnh hưởng hành vi</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="panel">
+            <h3>Policy disagreement</h3>
+            <div class="hbars">
+              <div class="hbar-row"><div class="hbar-label">Ngày 1&ndash;7</div><div class="hbar-track"><div class="hbar-fill" style="width:1%;background:var(--full)"></div></div><div class="hbar-val">&asymp;0,08%</div></div>
+              <div class="hbar-row"><div class="hbar-label">Ngày 8&ndash;37</div><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:var(--full)"></div></div><div class="hbar-val">&asymp;15%</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="panel">
+            <h3>Biên độ cập nhật Q (|&Delta;Q|)</h3>
+            <div class="hbars">
+              <div class="hbar-row"><div class="hbar-label">Ngày 7</div><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:var(--full)"></div></div><div class="hbar-val">1,88</div></div>
+              <div class="hbar-row"><div class="hbar-label">Ngày 14</div><div class="hbar-track"><div class="hbar-fill" style="width:72.7%;background:var(--full)"></div></div><div class="hbar-val">1,37</div></div>
+              <div class="hbar-row"><div class="hbar-label">Ngày 21</div><div class="hbar-track"><div class="hbar-fill" style="width:48.1%;background:var(--full)"></div></div><div class="hbar-val">0,91</div></div>
+              <div class="hbar-row"><div class="hbar-label">Ngày 37</div><div class="hbar-track"><div class="hbar-fill" style="width:43.5%;background:var(--full)"></div></div><div class="hbar-val">0,82</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note">Disagreement tăng, |&Delta;Q| giảm cùng giai đoạn utility bắt đầu phân kỳ (ngày 14&ndash;21) &mdash; bằng chứng correlational, chưa phải causal proof.</p>
+      <div class="footer"><span>Nguồn: policy_disagreement.csv, spatial_disagreement_by_zone.csv, q_table_convergence_daily.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 25 -- MECHANISM DIAGNOSTICS DETAIL ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Mechanism diagnostics chi tiết</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="panel">
+            <h3>Q-table convergence</h3>
+            <p>State visited: ngày 1 &asymp; 1.086 &rarr; ngày 7 &asymp; 1.381 &rarr; ngày 14 &asymp; 1.418 &rarr; ngày 21 &asymp; 1.427 &rarr; ngày 37 &asymp; 1.441.</p>
+            <p>Fairness score share tăng dần: ngày 1 &asymp; 1,2% &rarr; ngày 14 &asymp; 3,5% &rarr; ngày 21 &asymp; 4,3% &rarr; ngày 37 &asymp; 4,5%. Efficiency/look-ahead vẫn luôn &gt;95%.</p>
+          </div>
+          <div class="panel">
+            <h3>Weekly-cycle hypothesis</h3>
+            <p>Không quan sát chu kỳ 7 ngày lặp lại rõ ràng; gap Full&ndash;No-Forecast tăng đơn điệu từ &asymp;ngày 13&ndash;14, không theo pattern weekday/weekend cố định. Hypothesis bị bác bỏ bằng thực nghiệm.</p>
+          </div>
+        </div>
+        <div class="col">
+          <div class="panel">
+            <h3>Spatial candidate pool</h3>
+            <p>Core zones: &asymp;113&ndash;115 candidate/request, tỷ lệ 0 candidate &asymp;0%. Periphery: &asymp;27&ndash;31 candidate/request, tỷ lệ 0 candidate 0&ndash;4,8%.</p>
+            <p class="note">Geometry tĩnh (không commit driver movement) &mdash; chỉ dùng như diagnostic mật độ candidate cục bộ, không phải giải thích causal động.</p>
+          </div>
+        </div>
+      </div>
+      <div class="footer"><span>Nguồn: q_table_convergence_daily.csv, hypothesis4_fairness_balance.csv, hypothesis1_weekly_cycle.csv, spatial_candidate_pool.csv</span><span class="counter"></span></div>
+    </section>
+
     <!-- ============ SLIDE 26 -- FLEET SCALE ============ -->
     <section class="slide">
       <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
@@ -665,84 +744,28 @@ Epochs: 30, batch = 2048</div>
       <div class="footer"><span>Nguồn: reports/fleet_scale_results.csv (18 dòng gốc)</span><span class="counter"></span></div>
     </section>
 
-    <!-- ============ SLIDE 27B -- HELD-OUT TEST: FREEZE + BASELINE ============ -->
-    <section class="slide">
-      <div class="kicker">Phần 4 &middot; Held-out Test Evidence (sau khi freeze)</div>
-      <div class="headline">Sau khi chốt config trên Validation, chạy một lần trên Test chưa từng động tới</div>
-      <div class="two-col">
-        <div class="col">
-          <div class="claim-chip"><strong>Freeze trước</strong><br>&lambda;=0,5 &middot; &gamma;=0,9 &middot; &alpha;=0,1 &middot; Q-table, seed, code snapshot &mdash; hash hoá, không đổi sau khi thấy Test.</div>
-          <div class="claim-chip"><strong>Test = kỳ thi cuối</strong><br>Không dùng Test để chọn &lambda; hay sửa model &mdash; chỉ chạy 1 lần để kiểm tra generalization.</div>
-        </div>
-        <div class="col">
-          <div class="table-wrap">
-            <table class="data">
-              <tr><th></th><th class="num">Validation</th><th class="num">Held-out Test</th></tr>
-              <tr><td>MOMAQL Utility ($)</td><td class="num">1.422.441</td><td class="num hl">1.454.053</td></tr>
-              <tr><td>MOMAQL Gini</td><td class="num">0,2037</td><td class="num hl">0,2011</td></tr>
-            </table>
-          </div>
-          <p class="note">Operating point ổn định &mdash; không lệch hướng khi chuyển sang dữ liệu chưa từng thấy.</p>
-        </div>
-      </div>
-      <div class="footer"><span>Nguồn: final_test/baseline/test_baseline_summary.csv &middot; FINAL_TEST_PROTOCOL.md</span><span class="counter"></span></div>
-    </section>
-
-    <!-- ============ SLIDE 27C -- HELD-OUT TEST: ABLATION ============ -->
-    <section class="slide">
-      <div class="kicker">Phần 4 &middot; Held-out Test Evidence (sau khi freeze)</div>
-      <div class="headline">Ablation trên Test: cùng hướng với Validation, biên độ nhỏ hơn</div>
-      <div class="table-wrap">
-        <table class="data">
-          <tr><th>So sánh</th><th class="num">Validation</th><th class="num">Held-out Test</th></tr>
-          <tr><td>Full vs No-Forecast &mdash; Utility</td><td class="num">+22,4%</td><td class="num hl">+17,1%</td></tr>
-          <tr><td>No-Forecast Gini vs Full</td><td colspan="2" class="num">Thấp hơn (công bằng hơn) &mdash; đúng trên cả 5/5 seed, cả hai split</td></tr>
-          <tr><td>No-Fairness &mdash; bất bình đẳng</td><td colspan="2" class="num">Tăng trên cả hai split</td></tr>
-          <tr><td>No-Fairness &mdash; Utility</td><td colspan="2" class="num">Giảm trên cả hai split (không tăng)</td></tr>
-        </table>
-      </div>
-      <p class="note">5/5 seed nhất quán trên cả hai split. No-Forecast vẫn công bằng hơn Full trên Test &mdash; không đảo chiều.</p>
-      <div class="footer"><span>Nguồn: final_test/ablation/test_ablation_results.csv</span><span class="counter"></span></div>
-    </section>
-
-    <!-- ============ SLIDE 27D -- HELD-OUT TEST: LONG-HORIZON ============ -->
-    <section class="slide">
-      <div class="kicker">Phần 4 &middot; Held-out Test Evidence (sau khi freeze)</div>
-      <div class="headline">Lợi thế Utility dài hạn generalize sang Test, nhưng biên độ yếu hơn</div>
-      <div class="table-wrap">
-        <table class="data">
-          <tr><th>Ngày</th><th class="num">Validation &Delta;Utility</th><th class="num">Held-out Test &Delta;Utility</th></tr>
-          <tr><td>21</td><td class="num">+5,1%</td><td class="num hl">+1,2%</td></tr>
-          <tr><td>37</td><td class="num">+20,2%</td><td class="num hl">+13,4%</td></tr>
-        </table>
-      </div>
-      <p class="note">No-Forecast vẫn công bằng hơn Full ở ngày 37 trên cả hai split &mdash; fairness direction không đổi khi sang Test.</p>
-      <div class="footer"><span>Nguồn: final_test/long_horizon/test_long_horizon.csv</span><span class="counter"></span></div>
-    </section>
-
     <!-- ============ SLIDE 28 -- CLAIM-BY-CLAIM REPLICATION ASSESSMENT ============ -->
     <section class="slide">
-      <div class="kicker">Phần 5 &middot; Replication Assessment &amp; Conclusion</div>
-      <div class="headline">Held-out generalization &ne; paper replication &mdash; hai trục đánh giá độc lập</div>
-      <p class="note">Cột 1: phát hiện có lặp lại đúng hướng khi chuyển từ Validation sang Test không (mô tả, tính toán trực tiếp). Cột 2: tuyên bố của paper gốc có được xác nhận không (đánh giá khoa học độc lập). Hai cột không gộp thành một verdict.</p>
+      <div class="kicker">Phần 4 &middot; Replication Assessment &amp; Conclusion</div>
+      <div class="headline">6/6 claim đã được kiểm thử &mdash; mức độ tái lập khác nhau</div>
+      <p class="note">Experiment được đánh giá đầy đủ &ne; hướng gốc của paper được tái lập hoàn toàn. "Direction differs" nghĩa là replication phát hiện behavior khác paper, không phải experiment thất bại.</p>
       <div class="table-wrap">
         <table class="data">
-          <tr><th>Claim</th><th>Held-out Test</th><th>Paper Replication</th></tr>
-          <tr><td class="hl">C1 &mdash; Utility&ndash;Fairness trade-off</td><td><span class="status reproduced">Generalized</span></td><td><span class="status reproduced">Reproduced</span></td></tr>
-          <tr><td class="hl">C2 &mdash; Balanced policy vs baseline</td><td><span class="status reproduced">Generalized</span></td><td><span class="status reproduced">Reproduced (trong phạm vi adapted-baseline)</span></td></tr>
-          <tr><td class="hl">C3 &mdash; Long-horizon RL ổn định</td><td><span class="status reproduced">Generalized</span></td><td><span class="status partial">Partially Reproduced &mdash; củng cố thêm bởi Test</span></td></tr>
-          <tr><td class="hl">C4 &mdash; Forecast cải thiện fairness dài hạn</td><td><span class="status reproduced">Generalized*</span></td><td><span class="status not">Not Reproduced</span></td></tr>
-          <tr><td class="hl">C5 &mdash; Forecast cải thiện Utility + Fairness</td><td><span class="status reproduced">Generalized</span></td><td><span class="status partial">Partial &mdash; Utility improves; Fairness does not improve (No Forecast fairer)</span></td></tr>
-          <tr><td class="hl">C6 &mdash; Bỏ fairness đổi trade-off</td><td><span class="status reproduced">Generalized</span></td><td><span class="status partial">Partial &mdash; Inequality reproduced; Utility not reproduced</span></td></tr>
+          <tr><th>Claim</th><th>Key Evidence</th><th>Assessment</th></tr>
+          <tr><td class="hl">C1 &mdash; Utility&ndash;Fairness trade-off</td><td>&lambda; sweep tạo nhiều operating point; &lambda;=1 cực fair nhưng utility sụp</td><td><span class="status reproduced">Reproduced</span></td></tr>
+          <tr><td class="hl">C2 &mdash; Balanced policy vs baseline</td><td>MOMAQL utility cao nhất, fair hơn Greedy/Nearest/REASSIGN; LAF là fairness extreme</td><td><span class="status reproduced">Reproduced (trong phạm vi)</span></td></tr>
+          <tr><td class="hl">C3 &mdash; Long-horizon RL ổn định</td><td>Q coverage bão hòa, |&Delta;Q| giảm dần, policy dynamics ổn định hơn</td><td><span class="status reproduced">Supported (có điều kiện)</span></td></tr>
+          <tr><td class="hl">C4 &mdash; Forecast cải thiện fairness dài hạn</td><td>Utility dài hạn cải thiện rõ; Gini của Full lại cao hơn No-Forecast</td><td><span class="status partial">Direction differs (Fairness)</span></td></tr>
+          <tr><td class="hl">C5 &mdash; Forecast cải thiện Utility + Fairness</td><td>Utility +22,4%; Fairness không cải thiện</td><td><span class="status partial">Partial (Utility supported)</span></td></tr>
+          <tr><td class="hl">C6 &mdash; Bỏ fairness đổi trade-off</td><td>Bất bình đẳng tăng mạnh (đúng hướng); Utility giảm thay vì tăng (ngược hướng)</td><td><span class="status partial">Partial (trade-off direction differs)</span></td></tr>
         </table>
       </div>
-      <p class="note">*C4: không phải claim của paper generalize &mdash; mà chính <strong>discrepancy</strong> với paper (No-Forecast fairer hơn Full) lặp lại nhất quán trên cả hai split. Không viết "6/6 claim paper được reproduce".</p>
-      <div class="footer"><span>Nguồn: final_test/test_claim_assessment.csv &middot; diễn giải chi tiết: speaker notes</span><span class="counter"></span></div>
+      <div class="footer"><span>Verdict bám raw evidence từ reports/*.csv &middot; diễn giải chi tiết: speaker notes</span><span class="counter"></span></div>
     </section>
 
     <!-- ============ SLIDE 29 -- LIMITATIONS & CONCLUSION ============ -->
     <section class="slide">
-      <div class="kicker">Phần 5 &middot; Replication Assessment &amp; Conclusion</div>
+      <div class="kicker">Phần 4 &middot; Replication Assessment &amp; Conclusion</div>
       <div class="headline">FairDispatch tái lập được cơ chế trade-off và long-horizon Utility; Fairness direction còn khác paper</div>
       <div class="two-col">
         <div class="col">
@@ -764,13 +787,13 @@ Epochs: 30, batch = 2048</div>
           </ol>
         </div>
       </div>
-      <div class="verdict-badge">Tổng thể: <strong>Strong Partial Trend Replication with held-out temporal support</strong> <span style="font-weight:400;color:var(--gray);">(Strong &mdash; 13/13 generalize; Partial &mdash; claim liên quan fairness chưa reproduce đầy đủ; held-out temporal support &mdash; xác nhận trên Test chưa từng dùng để tuning)</span></div>
-      <div class="footer"><span>Không kết luận "paper sai" &mdash; chỉ kết luận claim nào survive dưới implementation này, có xác nhận trên Test</span><span class="counter"></span></div>
+      <div class="verdict-badge">Tổng thể: <strong>Strong Partial Trend Replication</strong> <span style="font-weight:400;color:var(--gray);">(tái lập xu hướng từng phần, ở mức mạnh &mdash; không phải Full Reproduction)</span></div>
+      <div class="footer"><span>Không kết luận "paper sai" &mdash; chỉ kết luận claim nào survive dưới implementation này</span><span class="counter"></span></div>
     </section>
 
     <!-- ============ SLIDE 30 -- PRODUCT DEMO PLACEHOLDER ============ -->
     <section class="slide">
-      <div class="kicker">Phần 6 &middot; Product Demo</div>
+      <div class="kicker">Phần 5 &middot; Product Demo</div>
       <h1 class="title" style="font-size:38px;">Product Demo</h1>
       <div class="body" style="justify-content:center;">
         <p style="font-size:20px;">Demo flow và product output sẽ được hoàn thiện <strong>sau khi</strong> phần trình bày nghiên cứu hoàn tất.</p>
@@ -782,7 +805,6 @@ Epochs: 30, batch = 2048</div>
           <div class="flow-step">Output / Dashboard</div>
         </div>
         <p class="note">Khung placeholder ở mức khái niệm &mdash; chi tiết demo thật sẽ được audit và bổ sung sau khi research story được chốt với mentor.</p>
-        <p class="note">Demo dùng dữ liệu Validation/demo slice mặc định &mdash; <strong>không</strong> chạy trên test.parquet. Test được giữ riêng cho đánh giá khoa học ở Phần 4&ndash;5, không lộ ra trong Control Room tương tác.</p>
       </div>
       <div class="footer"><span>Chưa audit sản phẩm đầu ra &mdash; không tự invent chi tiết</span><span class="counter"></span></div>
     </section>
@@ -794,11 +816,11 @@ Epochs: 30, batch = 2048</div>
       <div class="body" style="justify-content:center;">
         <ul style="font-size:21px;line-height:1.7;">
           <li>Simulator &amp; 5 policy độc lập, cùng chung một Hungarian joint solver.</li>
-          <li>15+ experiment trên Validation: baseline, &lambda; sweep, ablation, long-horizon, mechanism probe, fleet &amp; forecast sensitivity.</li>
-          <li>6/6 claim của paper được kiểm thử; 13/13 phát hiện xác nhận lại trên held-out Test sau khi freeze.</li>
+          <li>15+ experiment: baseline, &lambda; sweep, ablation, long-horizon, mechanism probe, fleet &amp; forecast sensitivity.</li>
+          <li>6/6 claim của paper được kiểm thử bằng dữ liệu NYC TLC thật, 5 seed.</li>
         </ul>
       </div>
-      <div class="verdict-badge">Kết luận cuối: <strong>Strong Partial Trend Replication with held-out temporal support</strong></div>
+      <div class="verdict-badge">Kết luận cuối: <strong>Strong Partial Trend Replication</strong></div>
       <div class="footer"><span>FairDispatch &middot; MOMAQL &middot; Tổng kết toàn dự án</span><span class="counter"></span></div>
     </section>
 

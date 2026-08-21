@@ -1,0 +1,37 @@
+{
+  "split_integrity": {
+    "train_max_epoch_seconds": 1371135205,
+    "val_min_epoch_seconds": 1371135208,
+    "val_max_epoch_seconds": 1374412620,
+    "test_min_epoch_seconds": 1374412620,
+    "train_before_val": true,
+    "val_before_test_raw": false,
+    "boundary_tie": {
+      "note": "val's last row and test's first N rows share epoch second val_max==test_min (distinct real NYC pickups in the same second at the row-index split cut, not duplicated data). Excluded from test.parquet's LOADED view (file on disk unmodified) for all Final Test runs.",
+      "boundary_epoch_second": 1374412620,
+      "test_rows_excluded": 3,
+      "test_min_epoch_seconds_after_exclusion": 1374412627
+    },
+    "val_before_test_after_boundary_fix": true,
+    "no_temporal_overlap": true,
+    "test_n_days": 42
+  },
+  "checksums": {
+    "train.parquet": {
+      "expected": "d763f86b93a57baee996929719435a401caf52ae1daffbb6f20d533022c9706d",
+      "actual": "d763f86b93a57baee996929719435a401caf52ae1daffbb6f20d533022c9706d",
+      "match": true
+    },
+    "val.parquet": {
+      "expected": "075e2a1b65c4b45abde92257e661edbcbdc25b3289818ae244d8f0526922a966",
+      "actual": "075e2a1b65c4b45abde92257e661edbcbdc25b3289818ae244d8f0526922a966",
+      "match": true
+    },
+    "test.parquet": {
+      "expected": "96e7133fec5f55a8260b5e2fc26327405c51e67529e2a96662a003cd6c66bc72",
+      "actual": "96e7133fec5f55a8260b5e2fc26327405c51e67529e2a96662a003cd6c66bc72",
+      "match": true
+    }
+  },
+  "blocker": null
+}

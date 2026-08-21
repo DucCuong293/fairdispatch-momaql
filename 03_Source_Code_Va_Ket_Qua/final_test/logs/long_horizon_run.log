@@ -1,0 +1,22 @@
+[load] loading Final Test Evaluation View...
+[load] 173,002 evaluated requests within the first 37 days (evaluation view spans test's audited 42-day span)
+[q] using momaql_q_table_trained.json
+
+=== FINAL TEST SUITE C: LONG-HORIZON ===
+[full         seed=20260721] disagreement_vs_no_forecast=0.0910 (57.2s)
+[no_forecast  seed=20260721] done (48.2s)
+[no_fairness  seed=20260721] done (46.9s)
+[full         seed=20260722] disagreement_vs_no_forecast=0.0797 (56.1s)
+[no_forecast  seed=20260722] done (50.4s)
+[no_fairness  seed=20260722] done (55.6s)
+[full         seed=20260723] disagreement_vs_no_forecast=0.0768 (71.0s)
+[no_forecast  seed=20260723] done (60.2s)
+[no_fairness  seed=20260723] done (48.7s)
+[full         seed=20260724] disagreement_vs_no_forecast=0.0910 (57.7s)
+[no_forecast  seed=20260724] done (49.8s)
+[no_fairness  seed=20260724] done (47.1s)
+[full         seed=20260725] disagreement_vs_no_forecast=0.0707 (56.2s)
+[no_forecast  seed=20260725] done (48.4s)
+[no_fairness  seed=20260725] done (47.0s)
+[done] wrote 165 rows to test_long_horizon.csv, 5 rows to test_policy_disagreement.csv
+[summary] mean policy disagreement rate (full vs no_forecast) = 0.0818
