@@ -1,0 +1,19 @@
+{
+  "train.parquet": {
+    "sha256": "d763f86b93a57baee996929719435a401caf52ae1daffbb6f20d533022c9706d",
+    "size_bytes": 224837938
+  },
+  "val.parquet": {
+    "sha256": "075e2a1b65c4b45abde92257e661edbcbdc25b3289818ae244d8f0526922a966",
+    "size_bytes": 48251945
+  },
+  "test.parquet": {
+    "sha256": "96e7133fec5f55a8260b5e2fc26327405c51e67529e2a96662a003cd6c66bc72",
+    "size_bytes": 48188109
+  },
+  "momaql_q_table_trained.json": {
+    "sha256": "9af13c33219f989e23a8ee9eca9e0cda3262996e34849bcc6dfab0cab5d64bdb",
+    "size_bytes": 47419
+  },
+  "git_commit_hash": "cefcd7465f2469a8d8c16e053966011085c50a2b"
+}

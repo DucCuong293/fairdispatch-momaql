@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FairDispatch  -- Slide Thuyet Trinh</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="deck">
+  <div class="stage" id="stage">
+
+    <!-- ============ SLIDE 1 -- TITLE ============ -->
+    <section class="slide title-slide">
+      <div class="kicker">Research Presentation</div>
+      <h1 class="title">FairDispatch </h1>
+      <div class="subtitle">Tái lập xu hướng định tính (trend replication) hệ thống điều phối<br>ride-hailing công bằng dài hạn (long-term fairness-aware dispatch)</div>
+      <div class="paper-ref">Đối chiếu với Kang et al. (2024), <em>"Long-term Fairness in Ride-Hailing Platform"</em>,<br>ECML PKDD 2024 &middot; arXiv:2407.17839</div>
+      <div class="footer"><span>FairDispatch  &middot; MOMAQL</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 2 -- AGENDA ============ -->
+    <section class="slide">
+      <div class="kicker">Nội dung</div>
+      <h1 class="title">Agenda</h1>
+      <div class="body">
+        <ul class="agenda-list">
+          <li><span class="num">01</span><span>Bài toán &amp; Phạm vi tái lập <span class="en">(Problem &amp; Replication Scope)</span></span></li>
+          <li><span class="num">02</span><span>Phương pháp &amp; Thiết lập thực nghiệm <span class="en">(Methodology &amp; Experimental Setup)</span></span></li>
+          <li><span class="num">03</span><span>Kết quả thực nghiệm &amp; Phân tích <span class="en">(Experimental Results &amp; Analysis)</span></span></li>
+          <li><span class="num">04</span><span>Đánh giá tái lập &amp; Kết luận <span class="en">(Replication Assessment &amp; Conclusion)</span></span></li>
+          <li><span class="num">05</span><span>Demo sản phẩm <span class="en">(Product Demo)</span></span></li>
+        </ul>
+      </div>
+      <div class="footer"><span>Phần 1&ndash;4: research story &middot; Phần 5: placeholder</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 3 -- RESEARCH PROBLEM ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 1 &middot; Problem &amp; Replication Scope</div>
+      <div class="headline">Tối ưu hiệu quả tức thời có thể làm chênh lệch thu nhập giữa tài xế tích lũy theo thời gian</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="claim-chip"><strong>Utility</strong><br>Tổng hiệu quả / accumulated income của toàn hệ thống.</div>
+          <div class="claim-chip"><strong>Fairness</strong><br>Mức độ đồng đều của accumulated utility giữa các driver.</div>
+        </div>
+        <div class="col">
+          <div class="hbars">
+            <div class="hbar-row"><div class="hbar-label">Driver A</div><div class="hbar-track"><div class="hbar-fill" style="width:88%;background:#9CA3AF;"></div></div></div>
+            <div class="hbar-row"><div class="hbar-label">Driver B</div><div class="hbar-track"><div class="hbar-fill" style="width:42%;background:#9CA3AF;"></div></div></div>
+            <div class="hbar-row"><div class="hbar-label">Driver C</div><div class="hbar-track"><div class="hbar-fill" style="width:64%;background:#9CA3AF;"></div></div></div>
+          </div>
+          <p class="note" style="text-align:center;">&darr; income gap tăng theo thời gian nếu chỉ tối ưu hiệu quả tức thời <em>(minh họa khái niệm, không phải số liệu thật)</em></p>
+        </div>
+      </div>
+      <div class="footer"><span>Nguồn: Kang et al. (2024), Section 1&ndash;2</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 4 -- WHY LOOK-AHEAD MATTERS ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 1 &middot; Problem &amp; Replication Scope</div>
+      <div class="headline">Destination của chuyến hiện tại quyết định cơ hội thu nhập ở những batch tiếp theo</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="flow">
+            <div class="flow-step">Current Request</div>
+            <div class="flow-arrow-down">&darr;</div>
+            <div class="flow-step">Current Assignment</div>
+            <div class="flow-arrow-down">&darr;</div>
+            <div class="flow-step">Driver ends in Zone X</div>
+            <div class="flow-arrow-down">&darr;</div>
+            <div class="flow-step">Future opportunity changes</div>
+            <div class="flow-arrow-down">&darr;</div>
+            <div class="flow-step">Long-term outcome</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="claim-chip"><strong>Myopic</strong><br>chỉ nhìn fare hiện tại</div>
+          <div class="claim-chip"><strong>Look-ahead</strong><br>fare hiện tại + future zone value</div>
+        </div>
+      </div>
+      <div class="footer"><span>Cơ chế này được kiểm chứng ở Mechanism Probe (slide 24)</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 5 -- ORIGINAL PAPER CLAIMS ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 1 &middot; Problem &amp; Replication Scope</div>
+      <div class="headline">Tuyên bố gốc của paper (định tính)</div>
+      <div class="body">
+        <ul>
+          <li>Chỉ tối ưu hiệu quả tức thời (myopic efficiency) có thể làm accumulated utility giữa các tài xế lệch nhau ngày càng lớn theo thời gian.</li>
+          <li>Đưa forecast/look-ahead vào quyết định assignment giúp cân bằng utility&ndash;fairness tốt hơn trên horizon dài, so với chính sách không nhìn trước.</li>
+          <li>Có một đánh đổi (trade-off) giữa tổng utility và mức độ công bằng khi điều chỉnh trọng số mục tiêu.</li>
+        </ul>
+        <p class="note">Paper không công bố đủ chi tiết MLP hyperparameters, driver count, và spatial clustering để tái lập số liệu chính xác &mdash; phần này chỉ liệt kê tuyên bố định tính đã paraphrase, không trích số liệu Table gốc vì không thể verify độc lập trong phạm vi audit này.</p>
+      </div>
+      <div class="footer"><span>Kang et al. (2024), arXiv:2407.17839</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 6 -- CLAIMS TO REPLICATE ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 1 &middot; Problem &amp; Replication Scope</div>
+      <div class="headline">Em đánh giá theo claim, không đánh giá theo con số của paper</div>
+      <div class="body">
+        <div class="claims-grid">
+          <div class="claim-chip"><span class="cid">C1</span>Tồn tại đánh đổi (trade-off) Utility &ndash; Fairness</div>
+          <div class="claim-chip"><span class="cid">C2</span>Chính sách đề xuất đạt điểm cân bằng tốt hơn baseline</div>
+          <div class="claim-chip"><span class="cid">C3</span>Hành vi RL ổn định khi horizon dài</div>
+          <div class="claim-chip"><span class="cid">C4</span>Forecast cải thiện fairness dài hạn</div>
+          <div class="claim-chip"><span class="cid">C5</span>Forecast ablation cải thiện cả Utility lẫn Fairness</div>
+          <div class="claim-chip"><span class="cid">C6</span>Bỏ fairness &rarr; Utility tăng, bất bình đẳng tăng mạnh</div>
+        </div>
+        <p class="note">Verdict cuối cùng ở Phần 4 &mdash; mọi experiment sau đây phục vụ một hoặc nhiều claim này.</p>
+      </div>
+      <div class="footer"><span>Claim rút ra từ tuyên bố định tính của paper</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 7 -- PAPER VS OUR IMPLEMENTATION ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 1 &middot; Problem &amp; Replication Scope</div>
+      <div class="headline">Đây là một approximation minh bạch, không phải reimplementation chính xác</div>
+      <div class="table-wrap">
+        <table class="data">
+          <tr><th>Thành phần</th><th>Paper</th><th>FairDispatch </th><th>Cách gọi</th></tr>
+          <tr><td>Dataset năm</td><td>NYC Taxi 2016</td><td>NYC TLC 2013</td><td>Deviation</td></tr>
+          <tr><td>Không gian</td><td>Merged graph nodes</td><td>67 TLC taxi zones</td><td>Approximation</td></tr>
+          <tr><td>Số driver</td><td>Không công bố</td><td>200</td><td>Assumption</td></tr>
+          <tr><td>Forecast</td><td>3-layer MLP</td><td>Canonical: tabular Q(zone,hour) + MLP benchmark riêng</td><td>Modified</td></tr>
+          <tr><td>Scalarisation</td><td>Utility + variance (&lambda;/&sigma;)</td><td>Efficiency + look-ahead + income gap riêng</td><td>Modified</td></tr>
+          <tr><td>Matching</td><td>Assignment formulation</td><td>Joint Hungarian M-to-N + decline</td><td>Comparable</td></tr>
+          <tr><td>Evaluation</td><td>Theo paper</td><td>5 seed, validation 195.508 chuyến</td><td>Reproducible</td></tr>
+        </table>
+      </div>
+      <p class="headline small">&rArr; Trend replication, không phải exact numerical reproduction.</p>
+      <div class="footer"><span>Deviation công bố trước khi xem kết quả</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 8 -- EXPERIMENTAL ARCHITECTURE ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 2 &middot; Methodology &amp; Experimental Setup</div>
+      <div class="headline">Mọi policy dùng chung simulator và Hungarian joint assignment</div>
+      <div class="body" style="justify-content:center;">
+        <div class="flow">
+          <div class="flow-step">NYC TLC</div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="flow-step">60s Request Batch</div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="flow-step">Feasible Drivers (ETA &le; 600s)</div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="flow-step">Policy Score Matrix</div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="flow-step">Hungarian Assignment + Decline</div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="flow-step">Driver State Update</div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="flow-step">Utility / Fairness</div>
+        </div>
+        <p class="note" style="text-align:center;">Same simulator + same solver = controlled policy comparison. Cả 5 policy chỉ khác nhau ở score function.</p>
+      </div>
+      <div class="footer"><span>Nguồn: src/simulator.py, src/policies.py</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 9 -- 5 POLICY DEFINITIONS ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 2 &middot; Methodology &amp; Experimental Setup</div>
+      <div class="headline">Định nghĩa 5 policy</div>
+      <div class="table-wrap">
+        <table class="data">
+          <tr><th>Policy</th><th>Score function</th></tr>
+          <tr><td class="hl">Greedy</td><td>score = fare_amount (giống nhau giữa mọi ứng viên của một request)</td></tr>
+          <tr><td class="hl">Nearest</td><td>score = (600 &minus; ETA) &times; 0,0025 &mdash; argmax(score) &equiv; argmin(ETA)</td></tr>
+          <tr><td class="hl">LAF</td><td>Lowest Accumulated Fare: score = [(mean_income &minus; driver.income)/mean_income] &times; fare</td></tr>
+          <tr><td class="hl">Exact REASSIGN</td><td>score = fare &minus; deadhead_cost, joint M-to-N mỗi 60s, khớp formulation gốc của paper</td></tr>
+          <tr><td class="hl">MOMAQL</td><td>Xem slide 12 &mdash; online TD(0) trên (zone, hour)</td></tr>
+        </table>
+      </div>
+      <p class="note">Cả 5 policy đều đi qua cùng <code>hungarian_batch_assign</code> với dummy decline &mdash; chỉ score function khác nhau.</p>
+      <div class="footer"><span>Nguồn: src/policies.py</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 10 -- SIMULATOR INVARIANTS & TEST SUITE ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 2 &middot; Methodology &amp; Experimental Setup</div>
+      <div class="headline">Simulator invariants &amp; test suite</div>
+      <div class="body">
+        <ul>
+          <li>Driver có <code>location</code>, <code>available_at</code>, <code>total_income</code>; feasible nếu đang free và pickup ETA &le; 600 giây.</li>
+          <li>Deadhead tính bằng haversine distance, giả định tốc độ hằng số 12 mph.</li>
+          <li>Commit trip: income cập nhật, vị trí chuyển tới dropoff, <code>available_at</code> tăng theo pickup ETA + trip duration.</li>
+          <li>20/20 test invariant hiện pass (lifecycle, no double booking, feasibility, time monotonicity...).</li>
+        </ul>
+        <div class="panel">
+          <h3>Known issue đã tự công bố</h3>
+          <p><code>test_no_double_booking_within_window</code> và <code>test_time_monotonicity</code> chạy với <code>record_trace=False</code> mặc định &rarr; assertion dựa trên trace có thể iterate trên trace rỗng. 20/20 pass là sanity layer, không phải formal proof of correctness.</p>
+        </div>
+      </div>
+      <div class="footer"><span>Nguồn: src/simulator.py, tests/test_simulator_invariants.py</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 11 -- MOMAQL DECISION LOGIC ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 2 &middot; Methodology &amp; Experimental Setup</div>
+      <div class="headline">MOMAQL cộng look-ahead value và fairness adjustment vào score hiệu quả</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="flow">
+            <div class="flow-step">Immediate Utility<br><span style="font-size:13px;color:var(--gray);">fare &minus; deadhead cost</span></div>
+            <div class="flow-arrow-down">+</div>
+            <div class="flow-step">Future Zone Value<br><span style="font-size:13px;color:var(--gray);">&gamma; &middot; Q(zone, hour)</span></div>
+            <div class="flow-arrow-down">+</div>
+            <div class="flow-step">Fairness Adjustment<br><span style="font-size:13px;color:var(--gray);">&lambda; &middot; income gap</span></div>
+            <div class="flow-arrow-down">&darr;</div>
+            <div class="flow-step" style="border-width:2.5px;font-weight:700;">Assignment Score</div>
+          </div>
+        </div>
+        <div class="col">
+          <p class="note">Q(zone,hour) = look-ahead value proxy &mdash; không phải demand-count predictor của paper.</p>
+          <p class="note">Cả 5 policy dùng chung Hungarian solver, chỉ khác score function này.</p>
+          <p class="note">Công thức đầy đủ + TD(0) update: slide 12.</p>
+        </div>
+      </div>
+      <div class="footer"><span>Nguồn: src/policies.py, class MOMAQLPolicy</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 12 -- PROJECT SCORE + TD(0) FORMULA (FULL) ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 2 &middot; Methodology &amp; Experimental Setup</div>
+      <div class="headline">Công thức đầy đủ: project score &amp; TD(0) update</div>
+      <div class="formula">score = (1&minus;&lambda;) &times; [fare &minus; deadhead_cost + &gamma; &times; Q(D_zone, D_hour)]
+        + &lambda; &times; [(mean_income &minus; driver.income) / mean_income] &times; fare
+
+deadhead_cost = pickup_eta_seconds &times; 0,0025 USD/giây
+
+TD(0), state S = (pickup_zone, pickup_hour):
+  Q(S) &larr; Q(S) + &alpha; &times; [reward + &gamma;&middot;Q(S') &minus; Q(S)]
+  reward = fare &minus; deadhead_cost
+  S' = (dropoff_zone, dropoff_hour)
+
+Ablation:
+  no_forecast &rArr; Q_future ép về 0
+  no_fairness &rArr; &lambda; ép về 0
+
+Mặc định: &lambda;=0,5 &middot; &gamma;=0,9 &middot; &alpha;=0,1</div>
+      <p class="note">Paper dùng utility + variance fairness với hệ số &lambda;/&sigma; riêng &mdash; scalarisation của project không tương đương toán học, nên &lambda; của hai bên <strong>không</strong> so sánh trực tiếp được.</p>
+      <div class="footer"><span>Nguồn: src/policies.py, class MOMAQLPolicy (_score, on_committed)</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 13 -- DATASET & PROTOCOL ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 2 &middot; Methodology &amp; Experimental Setup</div>
+      <div class="headline">So sánh chính dùng demand thật trên tập validation, lặp lại nhiều seed</div>
+      <div class="body" style="justify-content:center;">
+        <div class="cards">
+          <div class="card"><div class="n">912.375</div><div class="l">Train (chuyến)</div></div>
+          <div class="card"><div class="n">195.508</div><div class="l">Validation</div></div>
+          <div class="card"><div class="n">195.510</div><div class="l">Test</div></div>
+          <div class="card"><div class="n">200</div><div class="l">Driver</div></div>
+          <div class="card"><div class="n">5</div><div class="l">Seed (main)</div></div>
+          <div class="card"><div class="n">60s</div><div class="l">Batch</div></div>
+        </div>
+        <p class="note" style="text-align:center;">NYC TLC 2013 &middot; 67 zones &middot; ETA khả thi &le; 600s &middot; deadhead = haversine / 12&nbsp;mph &middot; chi phí deadhead 0,0025&nbsp;USD/giây.</p>
+      </div>
+      <div class="footer"><span>Nguồn: reports/dataset_checksums.json, src/simulator.py</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 14 -- MAIN BASELINE COMPARISON (real scatter) ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">MOMAQL đạt điểm cân bằng mạnh nhất &mdash; không phải policy công bằng nhất</div>
+      <div class="chart-svg-wrap">
+        <svg viewBox="0 0 640 400" role="img" aria-label="Scatter Utility so voi Gini cho 5 policy">
+          <line x1="80" y1="20" x2="80" y2="320" stroke="#9CA3AF" stroke-width="1.5"/>
+          <line x1="80" y1="320" x2="600" y2="320" stroke="#9CA3AF" stroke-width="1.5"/>
+          <!-- X ticks: Gini 0,0.1,0.2,0.3,0.4,0.5 -->
+          <g stroke="#D9DEE6" stroke-width="1">
+            <line x1="174.5" y1="20" x2="174.5" y2="320"/>
+            <line x1="269.1" y1="20" x2="269.1" y2="320"/>
+            <line x1="363.6" y1="20" x2="363.6" y2="320"/>
+            <line x1="458.2" y1="20" x2="458.2" y2="320"/>
+            <line x1="552.7" y1="20" x2="552.7" y2="320"/>
+          </g>
+          <g font-size="13" fill="#6B7280" text-anchor="middle">
+            <text x="80" y="338">0</text>
+            <text x="174.5" y="338">0,1</text>
+            <text x="269.1" y="338">0,2</text>
+            <text x="363.6" y="338">0,3</text>
+            <text x="458.2" y="338">0,4</text>
+            <text x="552.7" y="338">0,5</text>
+          </g>
+          <!-- Y ticks: Utility 600k..1400k -->
+          <g font-size="13" fill="#6B7280" text-anchor="end">
+            <text x="72" y="324">0,6tr</text>
+            <text x="72" y="254">0,8tr</text>
+            <text x="72" y="184">1,0tr</text>
+            <text x="72" y="114">1,2tr</text>
+            <text x="72" y="45">1,4tr</text>
+          </g>
+          <text x="340" y="368" font-size="15" fill="#6B7280" text-anchor="middle">Gini (thấp hơn = công bằng hơn) &rarr;</text>
+          <text x="30" y="170" font-size="15" fill="#6B7280" text-anchor="middle" transform="rotate(-90 30 170)">Utility ($) &uarr; cao hơn = tốt hơn</text>
+
+          <circle cx="272.9" cy="33.1" r="8" fill="var(--full)" stroke="#fff" stroke-width="2"/>
+          <text x="286" y="30" font-size="16" font-weight="700" fill="var(--full)">MOMAQL</text>
+          <text x="286" y="48" font-size="13" fill="#6B7280">1,42tr &middot; 0,204</text>
+
+          <circle cx="582.1" cy="179.9" r="7" fill="#9CA3AF" stroke="#fff" stroke-width="2"/>
+          <text x="568" y="170" font-size="15" font-weight="700" fill="#6B7280" text-anchor="end">Greedy</text>
+
+          <circle cx="486.5" cy="253.9" r="7" fill="#9CA3AF" stroke="#fff" stroke-width="2"/>
+          <text x="486.5" y="240" font-size="15" font-weight="700" fill="#6B7280" text-anchor="middle">Nearest</text>
+
+          <circle cx="81.9" cy="262.0" r="7" fill="var(--laf)" stroke="#fff" stroke-width="2"/>
+          <text x="96" y="258" font-size="16" font-weight="700" fill="var(--laf)">LAF</text>
+          <text x="96" y="276" font-size="13" fill="#6B7280">0,77tr &middot; 0,002</text>
+
+          <circle cx="474.3" cy="303.2" r="7" fill="#9CA3AF" stroke="#fff" stroke-width="2"/>
+          <text x="474.3" y="298" font-size="15" font-weight="700" fill="#6B7280" text-anchor="middle">REASSIGN</text>
+        </svg>
+      </div>
+      <p class="note">Không nói "MOMAQL tốt hơn mọi baseline ở mọi metric" &mdash; đây là balanced trade-off, không phải dominance tuyệt đối.</p>
+      <div class="footer"><span>Nguồn: reports/r1_validation_results.csv &middot; trung bình 5 seed</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 15 -- R1 PER-SEED SUMMARY (range bars, replaces 25-row table) ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">R1 &mdash; tóm tắt theo policy (mean, khoảng min&ndash;max, n=5 seed)</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="vchart-title" style="margin-bottom:4px;">Utility ($) &middot; trục 600.000&ndash;1.450.000</div>
+          <div class="statrows">
+            <div class="statrow"><span class="label">Greedy</span><div class="track"><div class="range" style="left:45.5%;width:4.1%;background:#9CA3AF;"></div><div class="mean-dot" style="left:47.2%;background:#9CA3AF;"></div></div><span class="val">986.915&ndash;1.021.638</span></div>
+            <div class="statrow"><span class="label">Nearest</span><div class="track"><div class="range" style="left:20.0%;width:4.7%;background:#9CA3AF;"></div><div class="mean-dot" style="left:22.3%;background:#9CA3AF;"></div></div><span class="val">770.016&ndash;809.608</span></div>
+            <div class="statrow"><span class="label">LAF</span><div class="track"><div class="range" style="left:15.5%;width:7.8%;background:var(--laf);"></div><div class="mean-dot" style="left:19.6%;background:var(--laf);"></div></div><span class="val">731.814&ndash;797.745</span></div>
+            <div class="statrow"><span class="label">REASSIGN</span><div class="track"><div class="range" style="left:4.7%;width:2.1%;background:#9CA3AF;"></div><div class="mean-dot" style="left:5.7%;background:#9CA3AF;"></div></div><span class="val">640.039&ndash;658.167</span></div>
+            <div class="statrow"><span class="label" style="color:var(--full);">MOMAQL</span><div class="track"><div class="range" style="left:95.6%;width:2.5%;background:var(--full);"></div><div class="mean-dot" style="left:96.8%;background:var(--full);"></div></div><span class="val"><b>1.412.304&ndash;1.433.470</b></span></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="vchart-title" style="margin-bottom:4px;">Gini &middot; trục 0&ndash;0,55</div>
+          <div class="statrows">
+            <div class="statrow"><span class="label">Greedy</span><div class="track"><div class="range" style="left:95.6%;width:2.3%;background:#9CA3AF;"></div><div class="mean-dot" style="left:96.5%;background:#9CA3AF;"></div></div><span class="val">0,526&ndash;0,538</span></div>
+            <div class="statrow"><span class="label">Nearest</span><div class="track"><div class="range" style="left:74.8%;width:7.3%;background:#9CA3AF;"></div><div class="mean-dot" style="left:78.1%;background:#9CA3AF;"></div></div><span class="val">0,411&ndash;0,452</span></div>
+            <div class="statrow"><span class="label">LAF</span><div class="track"><div class="range" style="left:0.3%;width:0.1%;background:var(--laf);"></div><div class="mean-dot" style="left:0.35%;background:var(--laf);"></div></div><span class="val">0,0018&ndash;0,0021</span></div>
+            <div class="statrow"><span class="label">REASSIGN</span><div class="track"><div class="range" style="left:71.9%;width:9.0%;background:#9CA3AF;"></div><div class="mean-dot" style="left:75.8%;background:#9CA3AF;"></div></div><span class="val">0,396&ndash;0,445</span></div>
+            <div class="statrow"><span class="label" style="color:var(--full);">MOMAQL</span><div class="track"><div class="range" style="left:35.5%;width:2.9%;background:var(--full);"></div><div class="mean-dot" style="left:37.0%;background:var(--full);"></div></div><span class="val"><b>0,195&ndash;0,211</b></span></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">Dot = mean 5 seed, thanh mờ = khoảng min&ndash;max. Bảng 25 dòng gốc: reports/r1_validation_results.csv.</p>
+      <div class="footer"><span>Nguồn: reports/r1_validation_results.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 16 -- LAMBDA SWEEP (real scatter) ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Quan hệ Utility&ndash;Fairness thực nghiệm không đơn điệu (non-monotonic)</div>
+      <div class="chart-svg-wrap">
+        <svg viewBox="0 0 640 400" role="img" aria-label="Scatter cac diem van hanh theo lambda">
+          <line x1="80" y1="20" x2="80" y2="320" stroke="#9CA3AF" stroke-width="1.5"/>
+          <line x1="80" y1="320" x2="600" y2="320" stroke="#9CA3AF" stroke-width="1.5"/>
+          <g stroke="#D9DEE6" stroke-width="1">
+            <line x1="184" y1="20" x2="184" y2="320"/>
+            <line x1="288" y1="20" x2="288" y2="320"/>
+            <line x1="392" y1="20" x2="392" y2="320"/>
+            <line x1="496" y1="20" x2="496" y2="320"/>
+            <line x1="600" y1="20" x2="600" y2="320"/>
+          </g>
+          <g font-size="13" fill="#6B7280" text-anchor="middle">
+            <text x="80" y="338">0</text>
+            <text x="184" y="338">0,1</text>
+            <text x="288" y="338">0,2</text>
+            <text x="392" y="338">0,3</text>
+            <text x="496" y="338">0,4</text>
+            <text x="600" y="338">0,5</text>
+          </g>
+          <g font-size="13" fill="#6B7280" text-anchor="end">
+            <text x="72" y="290">0,8tr</text>
+            <text x="72" y="224">1,0tr</text>
+            <text x="72" y="157">1,2tr</text>
+            <text x="72" y="91">1,4tr</text>
+            <text x="72" y="25">1,6tr</text>
+          </g>
+          <text x="340" y="368" font-size="15" fill="#6B7280" text-anchor="middle">Gini (thấp hơn = công bằng hơn) &rarr;</text>
+          <text x="30" y="170" font-size="15" fill="#6B7280" text-anchor="middle" transform="rotate(-90 30 170)">Utility ($) &uarr; cao hơn = tốt hơn</text>
+
+          <circle cx="548.4" cy="254.0" r="7" fill="var(--full)"/>
+          <text x="558" y="250" font-size="14" font-weight="700" fill="var(--full)">&lambda;=0,0</text>
+
+          <circle cx="337.8" cy="128.8" r="7" fill="var(--full)"/>
+          <text x="327" y="150" font-size="14" font-weight="700" fill="var(--full)" text-anchor="end">&lambda;=0,2</text>
+
+          <circle cx="308.3" cy="92.3" r="7" fill="var(--full)"/>
+          <text x="298" y="96" font-size="14" font-weight="700" fill="var(--full)" text-anchor="end">&lambda;=0,4</text>
+
+          <circle cx="291.8" cy="79.2" r="7" fill="var(--full)"/>
+          <text x="291.8" y="102" font-size="14" font-weight="700" fill="var(--full)" text-anchor="middle">&lambda;=0,5</text>
+
+          <circle cx="287.3" cy="75.9" r="7" fill="var(--full)"/>
+          <text x="300" y="65" font-size="14" font-weight="700" fill="var(--full)">&lambda;=0,6</text>
+
+          <circle cx="317.3" cy="34.9" r="7" fill="var(--full)"/>
+          <text x="327" y="30" font-size="14" font-weight="700" fill="var(--full)">&lambda;=0,8 (utility cao nhất)</text>
+
+          <circle cx="82.0" cy="297.9" r="7" fill="var(--laf)"/>
+          <text x="92" y="292" font-size="14" font-weight="700" fill="var(--laf)">&lambda;=1,0 (&asymp; LAF)</text>
+        </svg>
+      </div>
+      <p class="note">&lambda; đổi cả candidate ordering &amp; throughput trong Hungarian assignment, không chỉ trọng số tuyến tính &mdash; nên đường thực nghiệm không đơn điệu (&lambda;=0,8 utility cao hơn cả &lambda;=0,6).</p>
+      <div class="footer"><span>Nguồn: reports/pareto_frontier_summary.csv &middot; gọi là "Empirical &lambda; Sweep", không dùng "true Pareto frontier"</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 17 -- ABLATION ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Full đổi một phần Fairness để lấy +22,4% Utility so với No-Forecast</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="vchart-wrap">
+            <div class="vchart-title">Utility (cao hơn = tốt hơn)</div>
+            <div class="vchart">
+              <div class="vgroup"><div class="vbars"><div class="vbar" style="height:100%;background:var(--full)"><span class="val">1,42tr (+22,4%)</span></div></div><div class="glabel">Full</div></div>
+              <div class="vgroup"><div class="vbars"><div class="vbar" style="height:81.7%;background:var(--noforecast)"><span class="val">1,16tr</span></div></div><div class="glabel">No Forecast</div></div>
+              <div class="vgroup"><div class="vbars"><div class="vbar" style="height:63.1%;background:var(--nofairness)"><span class="val">898k</span></div></div><div class="glabel">No Fairness</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="vchart-wrap">
+            <div class="vchart-title">Gini (thấp hơn = công bằng hơn)</div>
+            <div class="vchart">
+              <div class="vgroup"><div class="vbars"><div class="vbar" style="height:45.2%;background:var(--full)"><span class="val">0,204</span></div></div><div class="glabel">Full</div></div>
+              <div class="vgroup"><div class="vbars"><div class="vbar" style="height:32.4%;background:var(--noforecast)"><span class="val">0,146 (công bằng hơn)</span></div></div><div class="glabel">No Forecast</div></div>
+              <div class="vgroup"><div class="vbars"><div class="vbar" style="height:100%;background:var(--nofairness)"><span class="val">0,450</span></div></div><div class="glabel">No Fairness</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="claims-grid" style="grid-template-columns:repeat(3,1fr);margin-top:4px;">
+        <div class="claim-chip" style="border-top-color:var(--noforecast);"><strong>No Forecast</strong><br>Fairer &mdash; Gini thấp nhất trong 3 nhóm</div>
+        <div class="claim-chip" style="border-top-color:var(--full);"><strong>Full</strong><br>Higher Utility &mdash; +22,4% so với No-Forecast</div>
+        <div class="claim-chip" style="border-top-color:var(--nofairness);"><strong>No Fairness</strong><br>Worst inequality &mdash; Gini cao nhất</div>
+      </div>
+      <p class="note">Đây là một trade-off vận hành đa mục tiêu, không phải Full "thắng" No-Forecast &mdash; platform có thể chọn operating point này nếu ưu tiên efficiency hơn.</p>
+      <div class="footer"><span>Nguồn: reports/r2_ablation_results.csv &middot; 5-seed mean &middot; C5: Partial (utility supported)</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 18 -- ABLATION PER-SEED SUMMARY (range bars, replaces 15-row table) ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Ablation &mdash; tóm tắt theo seed (trả lời: +22,4% có nhất quán 5 seed không?)</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="vchart-title" style="margin-bottom:4px;">Utility ($) &middot; trục 800.000&ndash;1.450.000</div>
+          <div class="statrows">
+            <div class="statrow"><span class="label" style="color:var(--full);">Full</span><div class="track"><div class="range" style="left:94.2%;width:3.3%;background:var(--full);"></div><div class="mean-dot" style="left:95.8%;background:var(--full);"></div></div><span class="val"><b>1.412.304&ndash;1.433.470</b></span></div>
+            <div class="statrow"><span class="label" style="color:var(--noforecast);">No Forecast</span><div class="track"><div class="range" style="left:53.7%;width:5.8%;background:var(--noforecast);"></div><div class="mean-dot" style="left:55.7%;background:var(--noforecast);"></div></div><span class="val">1.149.234&ndash;1.186.956</span></div>
+            <div class="statrow"><span class="label" style="color:var(--nofairness);">No Fairness</span><div class="track"><div class="range" style="left:9.2%;width:11.1%;background:var(--nofairness);"></div><div class="mean-dot" style="left:15.1%;background:var(--nofairness);"></div></div><span class="val">859.659&ndash;931.964</span></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="vchart-title" style="margin-bottom:4px;">Gini &middot; trục 0&ndash;0,5</div>
+          <div class="statrows">
+            <div class="statrow"><span class="label" style="color:var(--full);">Full</span><div class="track"><div class="range" style="left:39.1%;width:3.1%;background:var(--full);"></div><div class="mean-dot" style="left:40.7%;background:var(--full);"></div></div><span class="val">0,195&ndash;0,211</span></div>
+            <div class="statrow"><span class="label" style="color:var(--noforecast);">No Forecast</span><div class="track"><div class="range" style="left:26.8%;width:5.3%;background:var(--noforecast);"></div><div class="mean-dot" style="left:29.2%;background:var(--noforecast);"></div></div><span class="val"><b>0,134&ndash;0,161</b></span></div>
+            <div class="statrow"><span class="label" style="color:var(--nofairness);">No Fairness</span><div class="track"><div class="range" style="left:88.4%;width:4.2%;background:var(--nofairness);"></div><div class="mean-dot" style="left:90.1%;background:var(--nofairness);"></div></div><span class="val">0,442&ndash;0,463</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">+22,4% utility (Full vs No-Forecast) và Gini Full &gt; No-Forecast nhất quán trên cả 5/5 seed &mdash; không phải hiện tượng của một seed lệch. Raw: reports/r2_ablation_raw.csv.</p>
+      <div class="footer"><span>Nguồn: reports/r2_ablation_raw.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 19 -- VARIANCE / CV ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Variance / Coefficient of Variation (metric gần với paper hơn Gini)</div>
+      <div class="body">
+        <p style="font-size:17px;">Paper dùng <strong>variance của accumulated utility</strong> làm fairness quantity chính. Project báo Gini làm metric trực quan chính, nhưng vẫn giữ variance/CV song song.</p>
+        <div class="table-wrap">
+          <table class="data">
+            <tr><th>Ablation</th><th class="num">Variance trung bình</th><th class="num">Std/Mean (CV)</th></tr>
+            <tr><td class="hl">Full</td><td class="num">8.345.652</td><td class="num">0,4059</td></tr>
+            <tr><td>No Forecast</td><td class="num">2.473.498</td><td class="num">0,2702</td></tr>
+            <tr><td>No Fairness</td><td class="num">14.234.559</td><td class="num">0,8390</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="footer"><span>Nguồn: reports/r2_ablation_results.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 20 -- MLP BENCHMARK ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Kiến trúc MLP benchmark (sensitivity experiment)</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="formula">Input: pickup zone embedding (16d)
+     + destination zone embedding (16d)
+     + hour-of-day one-hot (24d)
+Layers: input &rarr; 64 &rarr; ReLU &rarr; 64 &rarr; 32 &rarr; ReLU &rarr; 32 &rarr; 1
+Target: log1p(count) của OD pair + hour
+Optimizer: Adam, lr = 0,005
+Epochs: 30, batch = 2048</div>
+          <p class="note">Predicted OD demand sum qua destination &rarr; zone-hour outbound demand &rarr; min-max rescale sang range của tabular Q &rarr; cùng score formula.</p>
+        </div>
+        <div class="col">
+          <table class="data">
+            <tr><th>Forecast representation</th><th class="num">Utility ($)</th><th class="num">Gini</th></tr>
+            <tr><td class="hl">Tabular Q (canonical)</td><td class="num hl">1.422.441</td><td class="num hl">0,204</td></tr>
+            <tr><td>MLP Demand Forecast</td><td class="num">1.392.473</td><td class="num">0,226</td></tr>
+            <tr><td>No Forecast</td><td class="num">1.162.077</td><td class="num">0,146</td></tr>
+          </table>
+          <p class="note">MLP thật vẫn tốt hơn rõ No-Forecast, nhưng tabular Q canonical vẫn tốt hơn MLP trong simulator này &mdash; không tuyên bố tái lập chính xác MLP của paper.</p>
+        </div>
+      </div>
+      <div class="footer"><span>Nguồn: reports/mlp_vs_tabular_summary.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 21 -- LONG-HORIZON UTILITY (line chart) ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Hiệu ứng look-ahead xuất hiện trễ: &asymp;0% đến ngày 14, +20,2% ở ngày 37</div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--full)"></span>Full</span>
+        <span><span class="sw" style="background:var(--noforecast)"></span>No Forecast</span>
+      </div>
+      <div class="chart-svg-wrap">
+        <svg viewBox="0 0 760 380" role="img" aria-label="Duong Utility theo ngay, Full so voi No Forecast">
+          <line x1="70" y1="20" x2="70" y2="320" stroke="#9CA3AF" stroke-width="1.5"/>
+          <line x1="70" y1="320" x2="730" y2="320" stroke="#9CA3AF" stroke-width="1.5"/>
+          <g stroke="#EEF0F3" stroke-width="1">
+            <line x1="70" y1="247.6" x2="730" y2="247.6"/>
+            <line x1="70" y1="175.2" x2="730" y2="175.2"/>
+            <line x1="70" y1="102.8" x2="730" y2="102.8"/>
+            <line x1="70" y1="30.3" x2="730" y2="30.3"/>
+          </g>
+          <g font-size="13" fill="#6B7280" text-anchor="end">
+            <text x="62" y="324">0</text>
+            <text x="62" y="251">0,35tr</text>
+            <text x="62" y="179">0,70tr</text>
+            <text x="62" y="107">1,05tr</text>
+            <text x="62" y="34">1,40tr</text>
+          </g>
+          <g font-size="13" fill="#6B7280" text-anchor="middle">
+            <text x="70" y="340">1</text><text x="136" y="340">2</text><text x="202" y="340">3</text>
+            <text x="268" y="340">4</text><text x="334" y="340">5</text><text x="400" y="340">6</text>
+            <text x="466" y="340">7</text><text x="532" y="340">14</text><text x="598" y="340">21</text>
+            <text x="664" y="340">28</text><text x="730" y="340">37</text>
+          </g>
+          <text x="400" y="362" font-size="14" fill="#6B7280" text-anchor="middle">Ngày (checkpoint, khoảng cách trục không tuyến tính)</text>
+
+          <polyline points="70,308.5 136,297.5 202,287.4 268,279.3 334,269.0 400,258.1 466,247.1 532,178.3 598,137.4 664,115.9 730,81.9" fill="none" stroke="var(--noforecast)" stroke-width="3"/>
+          <polyline points="70,308.5 136,297.5 202,287.4 268,279.3 334,269.0 400,258.1 466,247.1 532,178.2 598,128.0 664,92.1 730,33.8" fill="none" stroke="var(--full)" stroke-width="3.5"/>
+
+          <g fill="var(--full)"><circle cx="598" cy="128.0" r="4"/><circle cx="664" cy="92.1" r="4"/><circle cx="730" cy="33.8" r="5"/></g>
+          <g fill="var(--noforecast)"><circle cx="598" cy="137.4" r="4"/><circle cx="664" cy="115.9" r="4"/><circle cx="730" cy="81.9" r="5"/></g>
+
+          <g font-size="14" font-weight="700">
+            <text x="598" y="118" fill="var(--full)" text-anchor="middle">+5,15%</text>
+            <text x="664" y="82" fill="var(--full)" text-anchor="middle">+11,65%</text>
+            <text x="700" y="26" fill="var(--full)" text-anchor="end">+20,19%</text>
+          </g>
+        </svg>
+      </div>
+      <div style="display:flex;gap:32px;">
+        <p class="note" style="font-style:normal;"><strong style="color:var(--navy);">Quan sát 1</strong> &mdash; Full và No-Forecast gần như trùng nhau đến ngày 14.</p>
+        <p class="note" style="font-style:normal;"><strong style="color:var(--navy);">Quan sát 2</strong> &mdash; Utility tách rõ từ ngày 21, đạt +20,19% ở ngày 37.</p>
+      </div>
+      <p class="source">Checkpoint: ngày 1,2,3,4,5,6,7,14,21,28,37 (một trajectory, trục không tuyến tính) &middot; trung bình 5 seed &middot; bảng đầy đủ: slide 23.</p>
+      <div class="footer"><span>Nguồn: reports/multi_horizon_results.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 22 -- LONG-HORIZON FAIRNESS (line chart) ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Lợi thế Fairness dài hạn của paper không được tái lập theo Gini</div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--full)"></span>Full</span>
+        <span><span class="sw" style="background:var(--noforecast)"></span>No Forecast</span>
+        <span class="note">Gini &mdash; thấp hơn = công bằng hơn</span>
+      </div>
+      <div class="chart-svg-wrap">
+        <svg viewBox="0 0 760 380" role="img" aria-label="Duong Gini theo ngay, Full so voi No Forecast">
+          <line x1="70" y1="20" x2="70" y2="320" stroke="#9CA3AF" stroke-width="1.5"/>
+          <line x1="70" y1="320" x2="730" y2="320" stroke="#9CA3AF" stroke-width="1.5"/>
+          <g stroke="#EEF0F3" stroke-width="1">
+            <line x1="70" y1="260" x2="730" y2="260"/>
+            <line x1="70" y1="200" x2="730" y2="200"/>
+            <line x1="70" y1="140" x2="730" y2="140"/>
+            <line x1="70" y1="80" x2="730" y2="80"/>
+            <line x1="70" y1="20" x2="730" y2="20"/>
+          </g>
+          <g font-size="13" fill="#6B7280" text-anchor="end">
+            <text x="62" y="324">0</text>
+            <text x="62" y="264">0,05</text>
+            <text x="62" y="204">0,10</text>
+            <text x="62" y="144">0,15</text>
+            <text x="62" y="84">0,20</text>
+            <text x="62" y="24">0,25</text>
+          </g>
+          <g font-size="13" fill="#6B7280" text-anchor="middle">
+            <text x="70" y="340">1</text><text x="136" y="340">2</text><text x="202" y="340">3</text>
+            <text x="268" y="340">4</text><text x="334" y="340">5</text><text x="400" y="340">6</text>
+            <text x="466" y="340">7</text><text x="532" y="340">14</text><text x="598" y="340">21</text>
+            <text x="664" y="340">28</text><text x="730" y="340">37</text>
+          </g>
+          <text x="400" y="362" font-size="14" fill="#6B7280" text-anchor="middle">Ngày (checkpoint) &middot; cao hơn = kém công bằng hơn</text>
+
+          <polyline points="70,267.1 136,250.4 202,232.4 268,245.2 334,213.2 400,198.7 466,189.0 532,109.6 598,80.8 664,99.8 730,138.4" fill="none" stroke="var(--noforecast)" stroke-width="3"/>
+          <polyline points="70,267.1 136,250.9 202,231.4 268,248.0 334,216.4 400,200.4 466,191.4 532,110.6 598,61.6 664,48.8 730,59.8" fill="none" stroke="var(--full)" stroke-width="3.5"/>
+
+          <g fill="var(--full)"><circle cx="598" cy="61.6" r="4"/><circle cx="664" cy="48.8" r="4"/><circle cx="730" cy="59.8" r="5"/></g>
+          <g fill="var(--noforecast)"><circle cx="598" cy="80.8" r="4"/><circle cx="664" cy="99.8" r="4"/><circle cx="730" cy="138.4" r="5"/></g>
+
+          <g font-size="14" font-weight="700">
+            <text x="598" y="52" fill="var(--full)" text-anchor="middle">0,215</text>
+            <text x="664" y="40" fill="var(--full)" text-anchor="middle">0,226</text>
+            <text x="700" y="52" fill="var(--full)" text-anchor="end">0,217</text>
+            <text x="598" y="100" fill="var(--noforecast)" text-anchor="middle">0,199</text>
+            <text x="664" y="118" fill="var(--noforecast)" text-anchor="middle">0,184</text>
+            <text x="700" y="156" fill="var(--noforecast)" text-anchor="end">0,151</text>
+          </g>
+        </svg>
+      </div>
+      <div style="display:flex;gap:32px;">
+        <p class="note" style="font-style:normal;"><strong style="color:var(--navy);">Quan sát 1</strong> &mdash; Đến ngày 14, Gini của Full và No-Forecast gần bằng nhau.</p>
+        <p class="note" style="font-style:normal;"><strong style="color:var(--navy);">Quan sát 2</strong> &mdash; Từ ngày 21, Full có Gini cao hơn &mdash; kém công bằng hơn No-Forecast.</p>
+      </div>
+      <p class="headline small">Từ ngày 21 trở đi, Full có Gini <em>cao hơn</em> No-Forecast &mdash; negative result, giữ nguyên thay vì ép narrative.</p>
+      <div class="footer"><span>Nguồn: reports/multi_horizon_results.csv &middot; C4: Direction differs cho fairness</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 23 -- FULL MULTI-HORIZON TABLE ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Bảng đầy đủ Multi-Horizon (11 checkpoint, trung bình 5 seed)</div>
+      <div class="table-wrap">
+        <table class="data small">
+          <tr><th>Ngày</th><th class="num">Full Utility</th><th class="num">No-Forecast Utility</th><th class="num">&Delta;Utility</th><th class="num">Full Gini</th><th class="num">No-Forecast Gini</th></tr>
+          <tr><td>1</td><td class="num">55.462</td><td class="num">55.462</td><td class="num">0,00%</td><td class="num">0,0441</td><td class="num">0,0441</td></tr>
+          <tr><td>2</td><td class="num">108.568</td><td class="num">108.568</td><td class="num">0,00%</td><td class="num">0,0576</td><td class="num">0,0580</td></tr>
+          <tr><td>3</td><td class="num">157.349</td><td class="num">157.348</td><td class="num">0,00%</td><td class="num">0,0738</td><td class="num">0,0730</td></tr>
+          <tr><td>4</td><td class="num">196.719</td><td class="num">196.738</td><td class="num">&minus;0,01%</td><td class="num">0,0600</td><td class="num">0,0623</td></tr>
+          <tr><td>5</td><td class="num">246.394</td><td class="num">246.430</td><td class="num">&minus;0,01%</td><td class="num">0,0863</td><td class="num">0,0890</td></tr>
+          <tr><td>6</td><td class="num">299.146</td><td class="num">299.222</td><td class="num">&minus;0,03%</td><td class="num">0,0997</td><td class="num">0,1011</td></tr>
+          <tr><td>7</td><td class="num">352.442</td><td class="num">352.509</td><td class="num">&minus;0,02%</td><td class="num">0,1072</td><td class="num">0,1092</td></tr>
+          <tr><td>14</td><td class="num">685.359</td><td class="num">685.091</td><td class="num">+0,04%</td><td class="num">0,1745</td><td class="num">0,1753</td></tr>
+          <tr><td class="hl">21</td><td class="num hl">927.802</td><td class="num">882.363</td><td class="num hl">+5,15%</td><td class="num hl">0,2153</td><td class="num">0,1993</td></tr>
+          <tr><td class="hl">28</td><td class="num hl">1.101.659</td><td class="num">986.744</td><td class="num hl">+11,65%</td><td class="num hl">0,2260</td><td class="num">0,1835</td></tr>
+          <tr><td class="hl">37</td><td class="num hl">1.383.285</td><td class="num">1.150.959</td><td class="num hl">+20,19%</td><td class="num hl">0,2168</td><td class="num">0,1513</td></tr>
+        </table>
+      </div>
+      <div class="footer"><span>Nguồn: reports/multi_horizon_results.csv (166 dòng gốc, đã aggregate 5 seed)</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 24 -- MECHANISM PROBE ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Các policy chỉ phân kỳ sau khi look-ahead đủ ảnh hưởng hành vi</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="panel">
+            <h3>Policy disagreement</h3>
+            <div class="hbars">
+              <div class="hbar-row"><div class="hbar-label">Ngày 1&ndash;7</div><div class="hbar-track"><div class="hbar-fill" style="width:1%;background:var(--full)"></div></div><div class="hbar-val">&asymp;0,08%</div></div>
+              <div class="hbar-row"><div class="hbar-label">Ngày 8&ndash;37</div><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:var(--full)"></div></div><div class="hbar-val">&asymp;15%</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="panel">
+            <h3>Biên độ cập nhật Q (|&Delta;Q|)</h3>
+            <div class="hbars">
+              <div class="hbar-row"><div class="hbar-label">Ngày 7</div><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:var(--full)"></div></div><div class="hbar-val">1,88</div></div>
+              <div class="hbar-row"><div class="hbar-label">Ngày 14</div><div class="hbar-track"><div class="hbar-fill" style="width:72.7%;background:var(--full)"></div></div><div class="hbar-val">1,37</div></div>
+              <div class="hbar-row"><div class="hbar-label">Ngày 21</div><div class="hbar-track"><div class="hbar-fill" style="width:48.1%;background:var(--full)"></div></div><div class="hbar-val">0,91</div></div>
+              <div class="hbar-row"><div class="hbar-label">Ngày 37</div><div class="hbar-track"><div class="hbar-fill" style="width:43.5%;background:var(--full)"></div></div><div class="hbar-val">0,82</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note">Disagreement tăng, |&Delta;Q| giảm cùng giai đoạn utility bắt đầu phân kỳ (ngày 14&ndash;21) &mdash; bằng chứng correlational, chưa phải causal proof.</p>
+      <div class="footer"><span>Nguồn: policy_disagreement.csv, spatial_disagreement_by_zone.csv, q_table_convergence_daily.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 25 -- MECHANISM DIAGNOSTICS DETAIL ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Mechanism diagnostics chi tiết</div>
+      <div class="two-col">
+        <div class="col">
+          <div class="panel">
+            <h3>Q-table convergence</h3>
+            <p>State visited: ngày 1 &asymp; 1.086 &rarr; ngày 7 &asymp; 1.381 &rarr; ngày 14 &asymp; 1.418 &rarr; ngày 21 &asymp; 1.427 &rarr; ngày 37 &asymp; 1.441.</p>
+            <p>Fairness score share tăng dần: ngày 1 &asymp; 1,2% &rarr; ngày 14 &asymp; 3,5% &rarr; ngày 21 &asymp; 4,3% &rarr; ngày 37 &asymp; 4,5%. Efficiency/look-ahead vẫn luôn &gt;95%.</p>
+          </div>
+          <div class="panel">
+            <h3>Weekly-cycle hypothesis</h3>
+            <p>Không quan sát chu kỳ 7 ngày lặp lại rõ ràng; gap Full&ndash;No-Forecast tăng đơn điệu từ &asymp;ngày 13&ndash;14, không theo pattern weekday/weekend cố định. Hypothesis bị bác bỏ bằng thực nghiệm.</p>
+          </div>
+        </div>
+        <div class="col">
+          <div class="panel">
+            <h3>Spatial candidate pool</h3>
+            <p>Core zones: &asymp;113&ndash;115 candidate/request, tỷ lệ 0 candidate &asymp;0%. Periphery: &asymp;27&ndash;31 candidate/request, tỷ lệ 0 candidate 0&ndash;4,8%.</p>
+            <p class="note">Geometry tĩnh (không commit driver movement) &mdash; chỉ dùng như diagnostic mật độ candidate cục bộ, không phải giải thích causal động.</p>
+          </div>
+        </div>
+      </div>
+      <div class="footer"><span>Nguồn: q_table_convergence_daily.csv, hypothesis4_fairness_balance.csv, hypothesis1_weekly_cycle.csv, spatial_candidate_pool.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 26 -- FLEET SCALE ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Look-ahead có giá trị lớn nhất khi thiếu cung, gần biến mất khi dư thừa driver</div>
+      <div class="vchart-wrap">
+        <div class="vchart-title">Utility advantage của Full so với No-Forecast (%)</div>
+        <div class="vchart">
+          <div class="vgroup"><div class="vbars"><div class="vbar" style="height:93.1%;background:var(--full)"><span class="val">+41,9%</span></div></div><div class="glabel">N = 100 driver</div></div>
+          <div class="vgroup"><div class="vbars"><div class="vbar" style="height:51.8%;background:var(--full)"><span class="val">+23,3%</span></div></div><div class="glabel">N = 200 driver</div></div>
+          <div class="vgroup"><div class="vbars"><div class="vbar" style="height:0.2%;background:var(--full)"><span class="val">+0,0%</span></div></div><div class="glabel">N = 400 driver</div></div>
+        </div>
+      </div>
+      <p class="note">3 seed. Khi fleet gần bão hòa (N=400), hầu hết request được phục vụ nên lợi thế forecast biến mất &mdash; giá trị phụ thuộc operating regime, không phổ quát.</p>
+      <div class="footer"><span>Nguồn: reports/fleet_scale_results.csv</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 27 -- FLEET SCALE FULL RAW ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 3 &middot; Experimental Results &amp; Analysis</div>
+      <div class="headline">Fleet-scale sensitivity &mdash; số liệu đầy đủ (3 seed)</div>
+      <div class="table-wrap">
+        <table class="data">
+          <tr><th>N driver</th><th>Ablation</th><th class="num">Utility TB ($)</th><th class="num">Gini TB</th><th class="num">Advantage Utility</th></tr>
+          <tr><td rowspan="2">100</td><td class="hl">full</td><td class="num hl">1.114.780</td><td class="num">0,1199</td><td rowspan="2" class="num hl">+41,9%</td></tr>
+          <tr><td>no_forecast</td><td class="num">785.366</td><td class="num">0,0999</td></tr>
+          <tr><td rowspan="2">200</td><td class="hl">full</td><td class="num hl">1.424.200</td><td class="num">0,2054</td><td rowspan="2" class="num hl">+23,3%</td></tr>
+          <tr><td>no_forecast</td><td class="num">1.154.763</td><td class="num">0,1496</td></tr>
+          <tr><td rowspan="2">400</td><td class="hl">full</td><td class="num hl">1.817.345</td><td class="num">0,2397</td><td rowspan="2" class="num hl">+0,01%</td></tr>
+          <tr><td>no_forecast</td><td class="num">1.817.243</td><td class="num">0,2350</td></tr>
+        </table>
+      </div>
+      <div class="footer"><span>Nguồn: reports/fleet_scale_results.csv (18 dòng gốc)</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 28 -- CLAIM-BY-CLAIM REPLICATION ASSESSMENT ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 4 &middot; Replication Assessment &amp; Conclusion</div>
+      <div class="headline">6/6 claim đã được kiểm thử &mdash; mức độ tái lập khác nhau</div>
+      <p class="note">Experiment được đánh giá đầy đủ &ne; hướng gốc của paper được tái lập hoàn toàn. "Direction differs" nghĩa là replication phát hiện behavior khác paper, không phải experiment thất bại.</p>
+      <div class="table-wrap">
+        <table class="data">
+          <tr><th>Claim</th><th>Key Evidence</th><th>Assessment</th></tr>
+          <tr><td class="hl">C1 &mdash; Utility&ndash;Fairness trade-off</td><td>&lambda; sweep tạo nhiều operating point; &lambda;=1 cực fair nhưng utility sụp</td><td><span class="status reproduced">Reproduced</span></td></tr>
+          <tr><td class="hl">C2 &mdash; Balanced policy vs baseline</td><td>MOMAQL utility cao nhất, fair hơn Greedy/Nearest/REASSIGN; LAF là fairness extreme</td><td><span class="status reproduced">Reproduced (trong phạm vi)</span></td></tr>
+          <tr><td class="hl">C3 &mdash; Long-horizon RL ổn định</td><td>Q coverage bão hòa, |&Delta;Q| giảm dần, policy dynamics ổn định hơn</td><td><span class="status reproduced">Supported (có điều kiện)</span></td></tr>
+          <tr><td class="hl">C4 &mdash; Forecast cải thiện fairness dài hạn</td><td>Utility dài hạn cải thiện rõ; Gini của Full lại cao hơn No-Forecast</td><td><span class="status partial">Direction differs (Fairness)</span></td></tr>
+          <tr><td class="hl">C5 &mdash; Forecast cải thiện Utility + Fairness</td><td>Utility +22,4%; Fairness không cải thiện</td><td><span class="status partial">Partial (Utility supported)</span></td></tr>
+          <tr><td class="hl">C6 &mdash; Bỏ fairness đổi trade-off</td><td>Bất bình đẳng tăng mạnh (đúng hướng); Utility giảm thay vì tăng (ngược hướng)</td><td><span class="status partial">Partial (trade-off direction differs)</span></td></tr>
+        </table>
+      </div>
+      <div class="footer"><span>Verdict bám raw evidence từ reports/*.csv &middot; diễn giải chi tiết: speaker notes</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 29 -- LIMITATIONS & CONCLUSION ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 4 &middot; Replication Assessment &amp; Conclusion</div>
+      <div class="headline">FairDispatch tái lập được cơ chế trade-off và long-horizon Utility; Fairness direction còn khác paper</div>
+      <div class="two-col">
+        <div class="col">
+          <h3 style="font-size:16px;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px;">Limitations</h3>
+          <ul style="font-size:18px;">
+            <li>NYC TLC 2013 thay vì 2016</li>
+            <li>Tabular Q &ne; MLP của paper</li>
+            <li>Scalarisation đã sửa đổi</li>
+            <li>200 driver, 67 zone (giả định)</li>
+            <li>Baseline được điều chỉnh (adapted)</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h3 style="font-size:16px;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px;">Kết luận</h3>
+          <ol style="font-size:18px;">
+            <li>Balanced policy behavior reproduced.</li>
+            <li>Look-ahead tạo delayed Utility advantage mạnh (+20,2% ngày 37).</li>
+            <li>Fairness behavior cho thấy một operating trade-off khác paper.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="verdict-badge">Tổng thể: <strong>Strong Partial Trend Replication</strong> <span style="font-weight:400;color:var(--gray);">(tái lập xu hướng từng phần, ở mức mạnh &mdash; không phải Full Reproduction)</span></div>
+      <div class="footer"><span>Không kết luận "paper sai" &mdash; chỉ kết luận claim nào survive dưới implementation này</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 30 -- PRODUCT DEMO PLACEHOLDER ============ -->
+    <section class="slide">
+      <div class="kicker">Phần 5 &middot; Product Demo</div>
+      <h1 class="title" style="font-size:38px;">Product Demo</h1>
+      <div class="body" style="justify-content:center;">
+        <p style="font-size:20px;">Demo flow và product output sẽ được hoàn thiện <strong>sau khi</strong> phần trình bày nghiên cứu hoàn tất.</p>
+        <div class="flow flow-h">
+          <div class="flow-step">Input</div>
+          <div class="flow-arrow-right">&rarr;</div>
+          <div class="flow-step">Decision / Dispatch</div>
+          <div class="flow-arrow-right">&rarr;</div>
+          <div class="flow-step">Output / Dashboard</div>
+        </div>
+        <p class="note">Khung placeholder ở mức khái niệm &mdash; chi tiết demo thật sẽ được audit và bổ sung sau khi research story được chốt với mentor.</p>
+      </div>
+      <div class="footer"><span>Chưa audit sản phẩm đầu ra &mdash; không tự invent chi tiết</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 31 -- OVERALL PROJECT CONCLUSION ============ -->
+    <section class="slide">
+      <div class="kicker">Tổng kết dự án</div>
+      <div class="headline">FairDispatch: đủ chiều sâu để đánh giá</div>
+      <div class="body" style="justify-content:center;">
+        <ul style="font-size:21px;line-height:1.7;">
+          <li>Simulator &amp; 5 policy độc lập, cùng chung một Hungarian joint solver.</li>
+          <li>15+ experiment: baseline, &lambda; sweep, ablation, long-horizon, mechanism probe, fleet &amp; forecast sensitivity.</li>
+          <li>6/6 claim của paper được kiểm thử bằng dữ liệu NYC TLC thật, 5 seed.</li>
+        </ul>
+      </div>
+      <div class="verdict-badge">Kết luận cuối: <strong>Strong Partial Trend Replication</strong></div>
+      <div class="footer"><span>FairDispatch &middot; MOMAQL &middot; Tổng kết toàn dự án</span><span class="counter"></span></div>
+    </section>
+
+    <!-- ============ SLIDE 32 -- THANK YOU ============ -->
+    <section class="slide title-slide">
+      <div class="kicker">FairDispatch &middot; MOMAQL</div>
+      <h1 class="title">Cảm ơn</h1>
+      <div class="subtitle">Cảm ơn đã dành thời gian &mdash; sẵn sàng cho câu hỏi &amp; thảo luận.</div>
+      <div class="paper-ref">Kang et al. (2024), <em>"Long-term Fairness in Ride-Hailing Platform"</em>, ECML PKDD 2024 &middot; arXiv:2407.17839</div>
+      <div class="footer"><span>FairDispatch &middot; MOMAQL</span><span class="counter"></span></div>
+    </section>
+
+      </div>
+
+  <button class="navbtn" id="prevBtn" aria-label="Slide trước">&#8592;</button>
+  <button class="navbtn" id="nextBtn" aria-label="Slide sau">&#8594;</button>
+</div>
+<script src="script.js"></script>
+</body>
+</html>

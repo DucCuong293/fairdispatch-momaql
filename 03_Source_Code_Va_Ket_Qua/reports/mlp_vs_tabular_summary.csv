@@ -1,0 +1,4 @@
+model,utility_mean,utility_std,gini_mean,gini_std,variance_mean,trips_mean,batch_latency_ms_mean
+MOMAQL (MLP Demand Forecast),1392472.996,12030.187,0.226,0.009,10564128.656,153779.4,0.205
+MOMAQL (Tabular Q),1422441.121,8426.415,0.204,0.006,8345651.879,152380.0,0.189
+No-Forecast,1162077.118,14835.465,0.146,0.011,2473498.154,118703.2,0.17
