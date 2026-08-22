@@ -26,18 +26,34 @@ test trips).
 | LAF | 766,265 | 0.002 |
 | Exact REASSIGN | 648,160 | 0.417 |
 
-- **C1/C2 (utility–fairness trade-off, MOMAQL beats adapted baselines):**
-  Reproduced.
-- **C3/C4 (RL more stable / prediction helps over long horizons):**
-  Partially reproduced — the advantage is statistically flat through day 14,
-  opens up between day 14–21, and reaches +20% by day 37. The paper's own
-  day-3 crossover is not observed in this replication.
-- **C5 (forecast ablation helps utility+fairness):** Reproduced, +22.4%
-  utility, 5/5 seeds.
-- **C6 (removing fairness maximizes utility):** Splits into two findings —
-  fairness direction reproduced (Gini 0.204 → 0.450), utility direction
+- **C1 (utility–fairness trade-off exists):** Reproduced.
+- **C2 (MOMAQL beats adapted baselines on balance):** Reproduced, within the
+  adapted-baseline scope disclosed above.
+- **C3 (long-horizon RL behavior stabilizes):** Partially reproduced — Q
+  coverage and per-day score composition stabilize, but only correlational
+  evidence, not a controlled causal test.
+- **C4 (forecast improves long-term fairness): Not Reproduced.** Utility
+  advantage opens up between day 14–21 and reaches +20% by day 37, but
+  Gini/variance show **No-Forecast is fairer than Full** at every checkpoint
+  from day 21 onward — the opposite direction from the paper's claim. The
+  paper's own day-3 crossover is not observed either way.
+- **C5 (forecast ablation helps Utility + Fairness):** Partial — Utility
+  component reproduced (+22.4%, 5/5 seeds); **Fairness component NOT
+  reproduced** (No-Forecast is fairer than Full, not the other way round).
+- **C6 (removing fairness maximizes utility, worsens inequality):** Partial —
+  inequality direction reproduced (Gini 0.204 → 0.450), utility direction
   **not** reproduced (utility falls −37% here vs. rises sharply in the
   paper).
+
+A later **Final Held-out Temporal Test** (frozen protocol, run once on
+`test.parquet` after every configuration choice above was locked) confirmed
+13/13 pre-specified Validation findings generalize in the same direction on
+Test — including the C4 discrepancy above, which also held on Test. This
+strengthens confidence that the implementation's behavior is temporally
+robust; it does **not** convert C4 into a reproduced claim. See
+`final_test/FINAL_TEST_MENTOR_SUMMARY.md` and Sec. 8–9 of the Research
+Report / Sec. 8 of the Technical Documentation for the full dual-axis
+(`heldout_generalization` vs. `paper_replication_verdict`) claim table.
 
 Six further mechanism experiments (fleet-scale sweep, spatial candidate-pool
 depth, day-by-day Q-table convergence, weekly demand-cycle test, a real
@@ -49,7 +65,9 @@ are in the Research Report (see below).
 ## Repository layout
 
 ```text
-fairdispatch_v3_clean/
+03_Source_Code_Va_Ket_Qua/   # this bundle's root; identical relative layout
+│                             # to the fairdispatch_v3_clean/ dev repo it was
+│                             # copied from, just a different root folder name
 ├── src/
 │   ├── simulator.py        # batched dispatch sim: init_drivers, feasible_drivers,
 │   │                        #   commit_trip, run_simulation_batched/_with_horizon
@@ -68,11 +86,16 @@ fairdispatch_v3_clean/
 ├── train_and_eval_mlp.py     # real PyTorch MLP demand forecaster vs. tabular Q
 ├── make_report_figures.py    # regenerates every figure in docs/ from reports/*.csv
 ├── tests/test_simulator_invariants.py   # 20 invariant tests (no double-booking,
-│                                          #   time monotonicity, etc.)
+│                                          #   time monotonicity, etc. -- needs
+│                                          #   data/*.parquet present locally to run)
+├── scripts/final_test/       # Final Held-out Test pipeline: quality transform,
+│                              #   baseline/ablation/long-horizon runners, summary
 ├── data/                     # train/val/test parquet splits (not tracked; see
 │                              #   reports/dataset_checksums.json for SHA-256) +
 │                              #   the trained Q-table JSON
-├── reports/                  # every real CSV/JSON result this repo's claims cite
+├── reports/                  # every real Validation CSV/JSON result cited
+├── final_test/                # Final Held-out Test outputs: protocol, data-quality
+│                              #   gate, per-seed results, claim assessment, figures
 └── docs/
     ├── docx_report/          # mentor-facing Research/Experimental Report (.docx)
     ├── techdoc/               # engineering Technical Documentation
@@ -88,6 +111,8 @@ pip install numpy pandas pyarrow scipy matplotlib pytest python-docx
 pip install torch   # only needed for train_and_eval_mlp.py
 
 python -m pytest tests/test_simulator_invariants.py -q   # 20 passed
+# (needs data/train.parquet present locally -- gitignored/not shipped in this
+#  bundle; obtain the parquet splits separately first, see docs/techdoc/ Sec. 11.3)
 
 python train_momaql.py            # canonical Q-table -> data/momaql_q_table_trained.json
 python run_r1.py                  # -> reports/r1_validation_results.csv

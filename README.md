@@ -33,7 +33,11 @@ Mọi hình ảnh trong 2 tài liệu đều là biểu đồ thật vẽ từ s
 | Exact REASSIGN | 648.160 | 0,417 |
 
 Đánh giá đầy đủ theo từng claim của paper (Reproduced / Partially
-Reproduced / Not Reproduced / Not Evaluated) — xem Mục 9 của
+Reproduced / Not Reproduced), cả trên Validation lẫn trên một
+**Final Held-out Test** chạy sau khi mọi cấu hình đã đóng băng
+(13/13 phát hiện tiền xác định generalize đúng hướng sang Test) —
+xem Mục 9 (Final Held-out Test Evaluation) và Mục 10 (Replication
+Assessment) của
 `02_Bao_Cao_Du_An/Bao_Cao_Nghien_Cuu_FairDispatch_MOMAQL.docx`.
 
 ---

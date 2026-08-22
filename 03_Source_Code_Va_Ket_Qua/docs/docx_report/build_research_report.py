@@ -8,11 +8,14 @@ experiment suite reproduce, partially reproduce, or fail to reproduce?
 
 It is NOT a technical/implementation manual -- that lives in docs/techdoc/.
 All numbers below are read live from reports/*.csv (real simulation output,
-verified against a fresh 20/20 pytest run and a fresh `git rev-parse HEAD`
-at build time). Nothing here is hand-typed from memory.
+verified against a fresh pytest run of tests/test_simulator_invariants.py
+and a fresh `git rev-parse HEAD` at build time -- the pytest result depends
+on data/*.parquet being present locally; see Sec. 8.1). Nothing here is
+hand-typed from memory.
 Run: python docs/docx_report/build_research_report.py
 """
 import csv
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -66,6 +69,30 @@ def git_head():
         return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     except Exception:
         return "unavailable"
+
+
+def pytest_line():
+    """Actually re-run the invariant suite at build time (matches the same
+    live-verification this script already does for git_head()/reports/*.csv --
+    this text must never be hand-typed). Matches the real pytest summary line
+    by shape rather than a loose "passed" substring search, which can grab an
+    unrelated line when the run errors out before any test body executes."""
+    try:
+        out = subprocess.run([sys.executable, "-m", "pytest",
+                               "tests/test_simulator_invariants.py", "-q"],
+                              cwd=ROOT, capture_output=True, text=True, timeout=120)
+        combined = out.stdout + "\n" + out.stderr
+        m = re.search(r"^\d+ (?:passed|failed|errors?)\b.*$", combined, re.MULTILINE)
+        if not m:
+            return "(không đọc được dòng tổng kết pytest)"
+        line = m.group(0).strip()
+        if "error" in line.lower() and "train.parquet" in combined:
+            line += (" -- data/train.parquet chưa có trong bundle này (bị gitignore, quá lớn "
+                     "để đóng gói); phải lấy riêng các phần chia parquet để chạy lại bộ test "
+                     "này cục bộ (xem Technical Documentation Mục 11.3)")
+        return line
+    except Exception as e:
+        return f"(chạy pytest thất bại: {e})"
 
 
 def add_table(doc, headers, rows):
@@ -128,6 +155,7 @@ def add_figure(doc, filename, caption, width=5.9):
 
 def main():
     head = git_head()
+    test_line = pytest_line()
 
     r1 = read_csv("r1_validation_results.csv")
     r2_raw = read_csv("r2_ablation_raw.csv")
@@ -274,7 +302,7 @@ def main():
                  "(Held-out Test) tại thời điểm build tài liệu, không hand-type từ trí nhớ.")
 
     # ---------------- 1. Introduction ----------------
-    heading(doc, "1. Introduction", level=1)
+    heading(doc, "1. Giới thiệu (Introduction)", level=1)
     para(doc, "1.1 Động lực", size=11, bold=True)
     para(doc, "Các nền tảng gọi xe hiện đại tối ưu hóa hiệu quả (utility) có thể tạo ra bất công bằng "
               "thu nhập giữa tài xế qua thời gian. Kang et al. [2024] đề xuất một bộ điều khiển kết hợp "
@@ -301,32 +329,32 @@ def main():
     ])
 
     # ---------------- 2. Original Study ----------------
-    heading(doc, "2. Original Study", level=1)
+    heading(doc, "2. Nghiên cứu Gốc (Original Study)", level=1)
     para(doc, "2.1 Vấn đề bài toán", size=11, bold=True)
     para(doc, "Bộ điều khiển tối đa hóa utility − lambda × bất công bằng trên một khung thời gian "
               "dài. Efficiency = tổng utility tất cả tài xế. Fairness = phương sai (variance) của "
               "accumulated utility giữa các tài xế -- variance thấp nghĩa là thu nhập tài xế đồng đều hơn.")
     para(doc, "2.2 Các tuyên bố (claims) cần tái lập", size=11, bold=True)
-    add_table(doc, ["ID", "Tuyên bố của paper", "Evidence cần tái lập"], [
+    add_table(doc, ["ID", "Tuyên bố của paper", "Bằng chứng cần tái lập"], [
         ["C1", "Utility và fairness có trade-off", "Tăng fairness có thể làm giảm utility"],
-        ["C2", "Proposed method tạo trade-off tốt hơn baseline", "Điểm của Proposed nằm ở vùng "
-         "utility/fairness tốt hơn"],
-        ["C3", "RL-based methods ổn định hơn khi horizon tăng", "Fairness curve ít biến động hơn "
-         "theo thời gian"],
+        ["C2", "Phương pháp đề xuất tạo trade-off tốt hơn baseline", "Điểm của phương pháp đề "
+         "xuất nằm ở vùng utility/fairness tốt hơn"],
+        ["C3", "Phương pháp dựa trên RL ổn định hơn khi horizon tăng", "Đường cong fairness ít "
+         "biến động hơn theo thời gian"],
         ["C4", "Prediction giúp long-term fairness", "Có thể thua ngắn hạn nhưng tốt hơn khi horizon dài"],
         ["C5", "Prediction giúp utility + fairness so với no-prediction", "Ablation phải phản ánh "
          "đúng hướng"],
-        ["C6", "Bỏ fairness làm utility tăng mạnh nhưng inequality bùng lên", "w/o Fairness là extreme "
-         "utility/unfairness case"],
+        ["C6", "Bỏ fairness làm utility tăng mạnh nhưng inequality bùng lên", "w/o Fairness là "
+         "trường hợp cực đoan về utility/bất công bằng"],
     ])
     para(doc, "2.3 Số liệu gốc của paper (Table 1 và Ablation, trích dẫn trực tiếp)", size=11, bold=True)
-    add_table(doc, ["Method", "Total Utility", "Fairness (Var, thấp hơn = fair hơn)"], [
+    add_table(doc, ["Phương pháp", "Tổng Utility", "Fairness (Var, thấp hơn = fair hơn)"], [
         ["REASSIGN", "76.536", "493.638"],
         ["LAF", "80.606", "107.790"],
         ["Balance Ride-Pooling", "85.924", "100.255"],
         ["Proposed (Full)", "95.823,79", "85.193,62"],
     ])
-    add_table(doc, ["Ablation", "Total Utility", "Fairness (Var)"], [
+    add_table(doc, ["Ablation", "Tổng Utility", "Fairness (Var)"], [
         ["Full", "95.823,79", "85.193,62"],
         ["w/o Prediction", "56.873,21", "153.697,27"],
         ["w/o Fairness", "2.194.901,19", "2,677 × 10⁹"],
@@ -342,7 +370,7 @@ def main():
               "này chọn tái lập xu hướng thay vì số liệu tuyệt đối.")
 
     # ---------------- 3. Replication Scope ----------------
-    heading(doc, "3. Replication Scope", level=1)
+    heading(doc, "3. Phạm vi Tái lập (Replication Scope)", level=1)
     para(doc, "3.1 Exact reproduction vs. trend replication", size=11, bold=True)
     para(doc, "Dự án này CHÍNH THỨC tuyên bố đây là một TREND REPLICATION, không phải EXACT NUMERICAL "
               "REPRODUCTION. Lý do: (a) paper không công bố đủ chi tiết triển khai (Mục 2.4); (b) dữ "
@@ -367,7 +395,7 @@ def main():
     ])
 
     # ---------------- 4. Dataset and Preprocessing ----------------
-    heading(doc, "4. Dataset and Preprocessing", level=1)
+    heading(doc, "4. Dữ liệu và Tiền xử lý (Dataset and Preprocessing)", level=1)
     para(doc, "Nguồn: mẫu Bernoulli thật từ bộ dữ liệu NYC TLC 2013 đã làm sạch của dự án gốc "
               "(tháng Development 1–8), lọc theo manhattan_both=true và quality_flag_bitset=0. "
               "Bộ lọc Manhattan/chất lượng do pipeline gốc của dự án cha áp dụng, tái sử dụng ở "
@@ -399,7 +427,7 @@ def main():
     ])
 
     # ---------------- 5. Replication Methodology ----------------
-    heading(doc, "5. Replication Methodology", level=1)
+    heading(doc, "5. Phương pháp Tái lập (Replication Methodology)", level=1)
     para(doc, "5.1 Simulator", size=11, bold=True)
     para(doc, "Pipeline: cuốc xe thật → chia theo thời gian → mô phỏng theo lô cửa sổ 60 giây → "
               "ghép cặp Hungarian M-to-N (đệm dummy, cho phép từ chối) → 5 chính sách điều phối "
@@ -429,7 +457,7 @@ def main():
               "λ=1 mà paper báo cáo. Không tuyên bố tương ứng toán học giữa 2 công thức.")
 
     # ---------------- 6. Baselines ----------------
-    heading(doc, "6. Baselines", level=1)
+    heading(doc, "6. Baseline (Baselines)", level=1)
     add_table(doc, ["Baseline", "Nguồn", "Exact/Approx", "Sửa đổi"], [
         ["Greedy", "Paper", "Exact", "Không"],
         ["Nearest", "Không có trong paper", "—", "Tự thêm, không phải baseline của paper"],
@@ -447,7 +475,7 @@ def main():
               "thể của paper đó.", size=9.5, color=GREY)
 
     # ---------------- 7. Experimental Protocol ----------------
-    heading(doc, "7. Experimental Protocol", level=1)
+    heading(doc, "7. Giao thức Thực nghiệm (Experimental Protocol)", level=1)
     add_table(doc, ["Tham số", "Paper", "Dự án này", "Lý do"], [
         ["Số tài xế mô phỏng", "Không nêu rõ", "200", "Giả định hợp lý, không xác minh được với paper"],
         ["Cửa sổ điều phối", "Không nêu rõ", "60 giây", "Đơn vị batching thực tế của simulator"],
@@ -465,13 +493,13 @@ def main():
               "gian chạy với phần cứng Xeon Gold 6240 + RTX 8000 của paper.", size=9.5, color=GREY)
 
     # ---------------- 8. Results ----------------
-    heading(doc, "8. Results", level=1)
+    heading(doc, "8. Kết quả (Results)", level=1)
 
-    heading(doc, "8.1 Sanity checks", level=2)
-    para(doc, "20/20 test bất biến của simulator (tests/test_simulator_invariants.py) pass, chạy "
-              f"lại thật ngay tại thời điểm build tài liệu này. Đây không phải coverage hình thức "
-              "đầy đủ; 2 test dùng record_trace=False mặc định nên assertion dựa trên trace hiện "
-              "đang lặp trên trace rỗng (xem Techdoc).")
+    heading(doc, "8.1 Kiểm tra tính hợp lệ (Sanity checks)", level=2)
+    para(doc, f"tests/test_simulator_invariants.py, chạy lại thật ngay tại thời điểm build tài "
+              f"liệu này: {test_line}. Đây không phải coverage hình thức đầy đủ; 2 test dùng "
+              "record_trace=False mặc định nên assertion dựa trên trace hiện đang lặp trên trace "
+              "rỗng (xem Techdoc).")
 
     heading(doc, "8.2 So sánh cơ sở (R1)", level=2)
     para(doc, "195.508 yêu cầu kiểm định thật, 200 tài xế, trung bình 5 seed.")
@@ -645,7 +673,7 @@ def main():
               "trống khả dụng khi thực hiện) -- giới hạn này được công bố công khai, không che giấu.")
 
     # ---------------- 9. Final Held-out Test Evaluation ----------------
-    heading(doc, "9. Final Held-out Test Evaluation", level=1)
+    heading(doc, "9. Đánh giá Final Held-out Test (Final Held-out Test Evaluation)", level=1)
     heading(doc, "9.1 Mục đích", level=2)
     para(doc, "Toàn bộ Mục 8 (Results) ở trên chạy trên Validation (195.508 yêu cầu) -- tập dữ liệu "
               "dùng để phát triển implementation, chọn/khoá cấu hình, và chạy ablation/long-horizon. "
@@ -655,7 +683,7 @@ def main():
               "seed, metric, no-tuning rule) được đóng băng (frozen) trong "
               "`final_test/FINAL_TEST_PROTOCOL.md` TRƯỚC KHI bất kỳ policy nào chạy trên test.parquet.")
     if ft_available:
-        heading(doc, "9.2 Test Data Quality Gate", level=2)
+        heading(doc, "9.2 Cổng Kiểm tra Chất lượng Dữ liệu Test (Test Data Quality Gate)", level=2)
         tstats = ft_manifest["per_split"]["test"]
         para(doc, "Trước khi chạy policy, audit dữ liệu test.parquet phát hiện 33/195.510 dòng "
                   "(0,017%) có field `duration_seconds` (derived) bị lỗi -- timestamp `pickup_ts`/"
@@ -750,7 +778,7 @@ def main():
                      "CHÍNH sự KHÔNG khớp với paper mới là thứ generalize, không phải claim của paper.")
 
     # ---------------- 10. Replication Assessment ----------------
-    heading(doc, "10. Replication Assessment -- Paper vs. Ours, claim by claim", level=1)
+    heading(doc, "10. Đánh giá Tái lập -- Paper vs. Của chúng tôi, theo từng claim (Replication Assessment)", level=1)
     para(doc, "Đây là bảng trả lời trực tiếp câu hỏi trọng tâm: dự án này có đưa ra đủ bằng chứng "
               "để thuyết phục rằng cơ chế paper tuyên bố thực sự xuất hiện lại trong tái lập này "
               "hay không -- theo từng claim riêng biệt, không gộp chung. Bảng dưới báo cáo trên "
@@ -787,12 +815,12 @@ def main():
         for r in ft_claims:
             cid = next((v for k, v in claim_id_map.items() if r["claim"].startswith(k)), r["claim"])
             ft_rows.append([cid, r["heldout_generalization"], r["paper_replication_verdict"]])
-        dual_verdict_table(doc, ["Claim", "Held-out generalization", "Paper replication verdict"], ft_rows)
+        dual_verdict_table(doc, ["Claim", "Generalize trên Held-out Test", "Kết luận tái lập so với paper"], ft_rows)
         para(doc, "Không có claim nào được viết là \"6/6 reproduced\". Bảng đầy đủ với evidence/"
                   "caveat từng dòng: `final_test/test_claim_assessment.csv`.", size=9.5, color=GREY)
 
     # ---------------- 11. Discrepancies and Limitations ----------------
-    heading(doc, "11. Discrepancies and Limitations", level=1)
+    heading(doc, "11. Sai khác và Giới hạn (Discrepancies and Limitations)", level=1)
     heading(doc, "11.1 Vì sao số liệu khác paper", level=2)
     add_table(doc, ["Khác biệt", "Tác động kỳ vọng"], [
         ["Dữ liệu khác năm (2013 vs. 2016 của paper)", "Mẫu hình nhu cầu/không gian có thể khác; "
@@ -823,7 +851,7 @@ def main():
         "Độ nhạy quy mô đội xe: lợi thế dự báo bùng nổ khi thiếu hụt cung (+42% tại N=100) và bão "
         "hòa khi thừa cung (0% tại N=400) -- một phát hiện thật, không được paper kiểm tra.",
     ])
-    heading(doc, "11.3 Reproducibility Gaps and Assumptions", level=2)
+    heading(doc, "11.3 Khoảng trống Tái lập và Giả định (Reproducibility Gaps and Assumptions)", level=2)
     bullets(doc, [
         "A1. Paper không nêu rõ số lượng tài xế mô phỏng. Quyết định tái lập: dùng 200, giả định "
         "hợp lý cho quy mô Manhattan, công bố rõ đây là giả định.",
@@ -842,7 +870,7 @@ def main():
     ])
 
     # ---------------- 12. Conclusion ----------------
-    heading(doc, "12. Conclusion", level=1)
+    heading(doc, "12. Kết luận (Conclusion)", level=1)
     para(doc, "Dự án tái lập sạch các tuyên bố trung tâm về đánh đổi và vượt trội baseline (C1, C2), "
               "trên dữ liệu taxi NYC 2013 thực tế, độc lập, lấy mẫu riêng. Các tuyên bố "
               "horizon dài và no-fairness (C3, C4, C5, C6) chỉ tái lập một phần hoặc không tái lập ở "
@@ -873,14 +901,14 @@ def main():
               "thời gian độc lập, chưa từng dùng để tune.", bold=True)
 
     # ---------------- Appendix ----------------
-    heading(doc, "Appendix", level=1)
+    heading(doc, "Phụ lục (Appendix)", level=1)
     para(doc, "A.1 Reproducibility snapshot (tóm tắt -- xem Technical Documentation để có đầy đủ "
               "lệnh chạy lại, cấu trúc repo và module contract)", size=11, bold=True)
     add_table(doc, ["Mục", "Giá trị"], [
         ["Git commit tại thời điểm build tài liệu này", head],
         ["Dataset SHA-256 (train/val/test/Q-table)", "Xem reports/dataset_checksums.json và "
          "docs/techdoc/"],
-        ["Số test bất biến pass", "20/20 (tests/test_simulator_invariants.py, chạy lại thật)"],
+        ["Số test bất biến (chạy lại thật)", f"tests/test_simulator_invariants.py: {test_line}"],
         ["Random seeds (thí nghiệm chính)", "20260721, 20260722, 20260723, 20260724, 20260725"],
     ])
     para(doc, "A.2 Tài liệu tham khảo", size=11, bold=True)
