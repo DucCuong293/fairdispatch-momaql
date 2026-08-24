@@ -1,13 +1,28 @@
-"""Adapter around the REAL FairDispatch simulator/policy engine.
+"""Adapter around the REAL FairDispatch simulator/policy engine (deployed
+bundle). Imports simulator.py / policies.py directly from this bundle's own
+engine/src copy -- does not reimplement scoring or matching. Same
+window-by-window re-orchestration of run_simulation_batched's loop as the
+original product (05_SanPham_Demo) so Step still works; the algorithm itself
+is untouched.
 
-Imports simulator.py / policies.py directly from the bundle's own source
-copy -- does not reimplement scoring or matching. `run_simulation_batched`
-in simulator.py runs its whole `while` loop in one call with no way to
-pause between windows, so SimulationSession below re-orchestrates that
-SAME loop one window at a time (calling the real feasible_drivers(),
-commit_trip(), policy.select_batch(), policy.on_committed() at each step)
-so the product can expose a genuine Step control. The algorithm itself
-(who gets matched to whom, and why) is untouched.
+DEPLOY-SPECIFIC CHANGES vs 05_SanPham_Demo/backend/engine_adapter.py:
+  1. Dataset is the bundled Final Test Evaluation View (data/test_eval.parquet,
+     195,506 rows, frozen quality transform already applied) -- not
+     val.parquet from a sibling dev repo. Only "test" is a valid dataset name.
+  2. Loader is columnar/vectorized (numpy arrays cached once per process).
+     Scenario (time/day) filtering is a vectorized boolean mask over those
+     arrays; request_limit slicing happens on the resulting eligible index
+     array; per-row Python dicts are built ONLY for the selected rows -- never
+     195,506 dicts just to serve a 3,000-request live slice.
+  3. duration_seconds read from test_eval.parquet is already the frozen
+     quality-transform-evaluated value (repaired-from-timestamps where
+     needed); pickup_hour/dropoff_hour/pickup_weekday are already columns in
+     that parquet (computed once, at build time, by
+     scripts/build_test_eval_parquet.py), not recomputed here.
+  4. `_idx` keeps the exact same MEANING as the original product: the
+     position of a request within the full loaded (pre-filter) array for
+     this process, stable for the lifetime of the process -- required for
+     cands_map / explain() to keep working unchanged.
 """
 from __future__ import annotations
 
@@ -17,6 +32,9 @@ import threading
 import time
 from collections import OrderedDict
 
+import numpy as np
+import pyarrow.parquet as pq
+
 import paths
 
 sys.path.insert(0, str(paths.SRC_DIR))
@@ -25,8 +43,6 @@ from simulator import (  # noqa: E402
     COST_PER_SECOND_DEADHEAD_USD, MAX_PICKUP_ETA_SECONDS,
 )
 from policies import ALL_POLICIES, MOMAQLPolicy  # noqa: E402
-
-import pyarrow.parquet as pq  # noqa: E402
 
 
 def gini(values):
@@ -63,105 +79,101 @@ def lorenz_points(values):
     return pts
 
 
-_REQUEST_CACHE: dict[str, list[dict]] = {}
-_REQUEST_T0_CACHE: dict[str, int] = {}  # dataset -> real Unix epoch seconds of its first pickup_ts
+VALID_DATASETS = {"test"}  # deployed bundle ships ONLY the Final Test Evaluation View
 
-VALID_DATASETS = {"val", "train", "test"}
+_COLUMN_CACHE: dict | None = None
+
+
+def _load_columns() -> dict:
+    """Reads data/test_eval.parquet ONCE per process into compact numpy
+    columns (no per-row Python dicts here). ~195k rows x 13 numeric/short
+    columns is a few tens of MB as numpy arrays -- far cheaper than 195,506
+    Python dict objects."""
+    global _COLUMN_CACHE
+    if _COLUMN_CACHE is None:
+        path = paths.TEST_EVAL_PARQUET
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Khong tim thay {path}. Chay scripts/build_test_eval_parquet.py truoc khi start server."
+            )
+        table = pq.read_table(path)
+        abs_pickup = table["pickup_ts"].to_numpy(zero_copy_only=False).astype("datetime64[s]").astype("int64")
+        t0 = int(abs_pickup[0])
+        cols = {
+            "pickup_ts_rel": (abs_pickup - t0).astype(float),
+            "pickup_latitude": table["pickup_latitude"].to_numpy(),
+            "pickup_longitude": table["pickup_longitude"].to_numpy(),
+            "dropoff_latitude": table["dropoff_latitude"].to_numpy(),
+            "dropoff_longitude": table["dropoff_longitude"].to_numpy(),
+            "fare_amount": table["fare_amount"].to_numpy(),
+            "duration_seconds": table["duration_seconds"].to_numpy(),
+            "pickup_zone_id": table["pickup_zone_id"].to_numpy(),
+            "dropoff_zone_id": table["dropoff_zone_id"].to_numpy(),
+            "pickup_hour": table["pickup_hour"].to_numpy(),
+            "dropoff_hour": table["dropoff_hour"].to_numpy(),
+            "pickup_weekday": table["pickup_weekday"].to_numpy(),
+        }
+        _COLUMN_CACHE = {"t0": t0, "n": len(abs_pickup), "cols": cols}
+    return _COLUMN_CACHE
 
 
 def get_dataset_t0(dataset: str) -> int:
-    """Real Unix epoch seconds that pickup_ts=0 (i.e. window_start_seconds=0)
-    corresponds to for this dataset -- lets the frontend show the actual
-    calendar date/time from the NYC TLC data instead of a relative
-    "Day N" counter. Populated as a side effect of load_requests()."""
-    if dataset not in _REQUEST_T0_CACHE:
-        load_requests(dataset, None)
-    return _REQUEST_T0_CACHE[dataset]
+    """Real Unix epoch seconds that pickup_ts=0 corresponds to -- lets the
+    frontend show the actual calendar date/time from the NYC TLC data."""
+    return _load_columns()["t0"]
 
 
-def load_requests(dataset: str, limit: int | None) -> list[dict]:
-    """Same field extraction as common_loader.load_requests_fast, cached
-    per dataset name per process (parquet parse is the expensive part)."""
-    if dataset not in _REQUEST_CACHE:
-        path = paths.PARQUET_DATA_DIR / f"{dataset}.parquet"
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Không tìm thấy {path}. Live simulation cần file parquet thật từ repo dev "
-                f"fairdispatch_v3_clean/data/ (không copy vào gói nộp vì quá lớn ~50-225MB mỗi file). "
-                f"Nếu repo dev ở vị trí khác, đặt biến môi trường FAIRDISPATCH_DEV_REPO."
-            )
-        table = pq.read_table(path, columns=[
-            "pickup_ts", "pickup_latitude", "pickup_longitude",
-            "dropoff_latitude", "dropoff_longitude", "fare_amount",
-            "duration_seconds", "pickup_zone_id", "dropoff_zone_id",
-        ])
-        p_ts = table["pickup_ts"].to_numpy(zero_copy_only=False)
-        abs_sec = p_ts.astype("datetime64[s]").astype("int64")
-        t0 = abs_sec[0]
-        _REQUEST_T0_CACHE[dataset] = int(t0)
-        ts_rel = (abs_sec - t0).astype(float)
-        p_lat = table["pickup_latitude"].to_numpy()
-        p_lon = table["pickup_longitude"].to_numpy()
-        d_lat = table["dropoff_latitude"].to_numpy()
-        d_lon = table["dropoff_longitude"].to_numpy()
-        fares = table["fare_amount"].to_numpy()
-        durs = table["duration_seconds"].to_numpy()
-        p_hours = ((abs_sec // 3600) % 24).astype(int)
-        d_hours = (((abs_sec + durs.astype("int64")) // 3600) % 24).astype(int)
-        # 1970-01-01 (epoch day 0) was a Thursday -- weekday index 3 in a
-        # Monday=0..Sunday=6 convention, hence the "+3" offset. Real
-        # timestamp-derived weekday, not a guessed/hard-coded row index.
-        p_weekday = (((abs_sec // 86400) + 3) % 7).astype(int)
-        p_zids = table["pickup_zone_id"].to_pylist()
-        z_ids = table["dropoff_zone_id"].to_pylist()
-        n = len(p_lat)
-        _REQUEST_CACHE[dataset] = [
-            {"_idx": i, "pickup_ts": float(ts_rel[i]), "pickup_latitude": float(p_lat[i]),
-             "pickup_longitude": float(p_lon[i]), "dropoff_latitude": float(d_lat[i]),
-             "dropoff_longitude": float(d_lon[i]), "fare_amount": float(fares[i]),
-             "duration_seconds": float(durs[i]), "pickup_zone_id": p_zids[i], "dropoff_zone_id": z_ids[i],
-             "pickup_hour": int(p_hours[i]), "dropoff_hour": int(d_hours[i]), "pickup_weekday": int(p_weekday[i])}
-            for i in range(n)
-        ]
-    reqs = _REQUEST_CACHE[dataset]
-    return reqs[:limit] if limit else reqs
+def _eligible_indices(time_filter: dict | None, day_filter: dict | None) -> np.ndarray:
+    """Vectorized boolean-mask filter over the cached numpy columns. Same
+    semantics as engine_adapter.py's _hour_in_time_filter/_weekday_in_day_filter
+    (overnight wrap, weekday<=4, weekend>=5, custom days list) -- just
+    computed as array ops instead of a per-row Python loop."""
+    d = _load_columns()
+    n = d["n"]
+    mask = np.ones(n, dtype=bool)
+
+    if time_filter and time_filter.get("mode", "all") != "all":
+        start, end = time_filter.get("start_hour"), time_filter.get("end_hour")
+        if start is not None and end is not None:
+            hours = d["cols"]["pickup_hour"]
+            if start <= end:
+                mask &= (hours >= start) & (hours < end)
+            else:  # overnight wrap, e.g. 22..5
+                mask &= (hours >= start) | (hours < end)
+
+    if day_filter and day_filter.get("mode", "all") != "all":
+        wd = d["cols"]["pickup_weekday"]
+        mode = day_filter.get("mode")
+        if mode == "weekday":
+            mask &= wd <= 4
+        elif mode == "weekend":
+            mask &= wd >= 5
+        else:
+            days = day_filter.get("days")
+            if days:
+                mask &= np.isin(wd, days)
+
+    return np.nonzero(mask)[0]
 
 
-def _hour_in_time_filter(hour: int, time_filter: dict | None) -> bool:
-    if not time_filter or time_filter.get("mode", "all") == "all":
-        return True
-    start, end = time_filter.get("start_hour"), time_filter.get("end_hour")
-    if start is None or end is None:
-        return True
-    if start <= end:
-        return start <= hour < end
-    return hour >= start or hour < end  # overnight wrap, e.g. 22..5
-
-
-def _weekday_in_day_filter(weekday: int, day_filter: dict | None) -> bool:
-    if not day_filter or day_filter.get("mode", "all") == "all":
-        return True
-    mode = day_filter.get("mode")
-    if mode == "weekday":
-        return weekday <= 4
-    if mode == "weekend":
-        return weekday >= 5
-    days = day_filter.get("days")
-    if days:
-        return weekday in days
-    return True
-
-
-def apply_scenario_filters(requests: list[dict], time_filter: dict | None, day_filter: dict | None) -> list[dict]:
-    """Filters the REAL cached request set by real pickup_hour/pickup_weekday.
-    Order matters: must run BEFORE request_limit slicing (see SimulationSession
-    -- otherwise a narrow time/day scenario could see almost no requests
-    just because they all got cut off by an unrelated slice-first limit)."""
-    if (not time_filter or time_filter.get("mode", "all") == "all") and \
-       (not day_filter or day_filter.get("mode", "all") == "all"):
-        return requests
-    return [r for r in requests if _hour_in_time_filter(r["pickup_hour"], time_filter)
-            and _weekday_in_day_filter(r["pickup_weekday"], day_filter)]
+def _rows_from_indices(indices) -> list[dict]:
+    """Builds per-row Python dicts ONLY for the given positional indices --
+    the expensive dict-per-row step is deferred until after filter+limit."""
+    cols = _load_columns()["cols"]
+    return [
+        {"_idx": int(i), "pickup_ts": float(cols["pickup_ts_rel"][i]),
+         "pickup_latitude": float(cols["pickup_latitude"][i]),
+         "pickup_longitude": float(cols["pickup_longitude"][i]),
+         "dropoff_latitude": float(cols["dropoff_latitude"][i]),
+         "dropoff_longitude": float(cols["dropoff_longitude"][i]),
+         "fare_amount": float(cols["fare_amount"][i]),
+         "duration_seconds": float(cols["duration_seconds"][i]),
+         "pickup_zone_id": int(cols["pickup_zone_id"][i]),
+         "dropoff_zone_id": int(cols["dropoff_zone_id"][i]),
+         "pickup_hour": int(cols["pickup_hour"][i]), "dropoff_hour": int(cols["dropoff_hour"][i]),
+         "pickup_weekday": int(cols["pickup_weekday"][i])}
+        for i in indices
+    ]
 
 
 _Q_TABLE_CACHE: dict | None = None
@@ -170,8 +182,7 @@ _Q_TABLE_CACHE: dict | None = None
 def load_trained_q_table() -> dict:
     global _Q_TABLE_CACHE
     if _Q_TABLE_CACHE is None:
-        path = paths.BUNDLE_DATA_DIR / "momaql_q_table_trained.json"
-        with path.open("r", encoding="utf-8") as f:
+        with paths.Q_TABLE_PATH.open("r", encoding="utf-8") as f:
             raw = json.load(f)
         _Q_TABLE_CACHE = {int(k) if k.isdigit() else k: float(v) for k, v in raw.items()}
     return _Q_TABLE_CACHE
@@ -193,7 +204,8 @@ def validate_config(policy, n_drivers, lam, gamma, alpha, request_limit, dataset
     if policy not in ALL_POLICIES:
         errors.append(f"policy '{policy}' không hợp lệ. Các policy hỗ trợ: {list(ALL_POLICIES)}")
     if dataset not in VALID_DATASETS:
-        errors.append(f"dataset '{dataset}' không hợp lệ. Hỗ trợ: {sorted(VALID_DATASETS)}")
+        errors.append(f"dataset '{dataset}' không hợp lệ. Bản deploy này chỉ hỗ trợ: {sorted(VALID_DATASETS)} "
+                       f"(Tập kiểm thử cuối đã chuẩn hóa).")
     if n_drivers is None or n_drivers <= 0:
         errors.append("n_drivers phải > 0")
     if request_limit is not None and request_limit <= 0:
@@ -210,16 +222,7 @@ def validate_config(policy, n_drivers, lam, gamma, alpha, request_limit, dataset
 def score_breakdown(policy, policy_name: str, d, req, dist, eta, mean_income, driver_income: float):
     """Real per-candidate score, taken verbatim from the exact score_fn each
     policy uses inside select_batch() -- not recomputed with a different
-    formula. For MOMAQL, decomposes policy._score()'s own real return value
-    into its three real weighted terms (they sum exactly to final_score).
-
-    driver_income is passed in explicitly (a snapshot taken at the moment
-    select_batch() actually scored this window) rather than read live off
-    `d`, because `d` is the SAME mutable Driver object select_batch scored
-    against -- if this driver was already committed to an EARLIER request
-    within the same batch before the caller asks to explain a LATER one,
-    `d.total_income` would already reflect that commit and silently show a
-    score that was never the one actually computed at decision time."""
+    formula. Identical to 05_SanPham_Demo's version (no engine change)."""
     fare = req["fare_amount"]
     deadhead_cost = eta * COST_PER_SECOND_DEADHEAD_USD
     if policy_name == "MOMAQL":
@@ -253,7 +256,9 @@ def score_breakdown(policy, policy_name: str, d, req, dist, eta, mean_income, dr
 class SimulationSession:
     """One live, step-able run. Holds real Driver objects and a real
     policy instance; step() advances exactly one WINDOW_SECONDS batch
-    using the real feasible_drivers/commit_trip/select_batch functions."""
+    using the real feasible_drivers/commit_trip/select_batch functions.
+    Unchanged from 05_SanPham_Demo except how self.requests is built (see
+    module docstring)."""
 
     WINDOW_SECONDS = 60.0
 
@@ -276,28 +281,27 @@ class SimulationSession:
         self.day_filter = day_filter
         self.created_at = time.time()
         self.t0_epoch_seconds = get_dataset_t0(dataset)
-        # Filter order matters (PHASE 3 requirement): load the FULL cached
-        # dataset, apply day/time scenario filter, THEN slice request_limit
-        # -- never slice-first, or a narrow scenario could see near-zero
-        # requests just because they got cut off by an unrelated limit.
-        all_requests = load_requests(dataset, None)
-        self.available_request_count = len(all_requests)
-        filtered = apply_scenario_filters(all_requests, time_filter, day_filter)
-        self.filtered_request_count = len(filtered)
-        if not filtered:
+
+        d = _load_columns()
+        self.available_request_count = d["n"]
+        # Filter order matters (unchanged requirement): eligible mask THEN
+        # request_limit slice -- never slice-first, or a narrow scenario
+        # could see near-zero requests just because they got cut off by an
+        # unrelated slice-first limit.
+        eligible = _eligible_indices(time_filter, day_filter)
+        self.filtered_request_count = len(eligible)
+        if len(eligible) == 0:
             raise ValueError("Không có yêu cầu chuyến nào khớp với kịch bản đã chọn (bộ lọc giờ/ngày quá hẹp).")
-        self.requests = filtered[:request_limit] if request_limit else filtered
-        if not self.requests:
+        selected = eligible[:request_limit] if request_limit else eligible
+        if len(selected) == 0:
             raise ValueError(f"Dataset '{dataset}' rỗng hoặc request_limit=0.")
+        self.requests = _rows_from_indices(selected)  # dicts built ONLY for selected rows
         self.n = len(self.requests)
         self._lock = threading.Lock()  # defense-in-depth: reject overlapping step() calls
         self._build()
 
     def _build(self):
         self.policy = make_policy(self.policy_name, self.lam, self.gamma, self.alpha, self.forecast_on)
-        # init_drivers() itself caps to min(n_drivers, len(requests)) -- expose
-        # the ACTUAL count used so the UI never silently shows a requested
-        # number the engine did not really initialize.
         self.drivers = init_drivers(self.n_drivers_requested, self.requests, self.seed)
         self.n_drivers_actual = len(self.drivers)
         self.policy.on_start(self.drivers)
@@ -306,11 +310,6 @@ class SimulationSession:
         self.i = 0
         self.batch_count = 0
         self.done = False
-        # Ring buffer of recent windows -- the frontend now runs a continuous
-        # playback clock and prefetches a few batches ahead, so "Why this
-        # driver?" for a batch that is still visually playing (not the very
-        # latest fetched one) must still be explainable. Keyed by batch
-        # number; oldest evicted once beyond MAX_WINDOW_HISTORY.
         self.window_history: "OrderedDict[int, dict]" = OrderedDict()
         self.MAX_WINDOW_HISTORY = 32
 
@@ -339,7 +338,7 @@ class SimulationSession:
             self.i += 1
 
         cands_map = {}
-        feasible_driver_ids = set()  # UNIQUE drivers, never the sum of per-request candidate edges
+        feasible_driver_ids = set()
         for req in window_reqs:
             cands = feasible_drivers(self.drivers, req, window_start)
             if cands:
@@ -353,14 +352,11 @@ class SimulationSession:
         ]
 
         mean_income = self.policy._mean_income() if hasattr(self.policy, "_mean_income") else None
-        # Snapshot BEFORE any commit_trip() in this window mutates driver
-        # state -- see score_breakdown()'s docstring for why explain() must
-        # not read live d.total_income after the batch has been committed.
         income_snapshot = {d.driver_id: d.total_income for d in self.drivers}
 
         assigned_out = []
         declined_out = []
-        selected_by_req = {}  # req_idx -> driver_id or None -- the REAL Hungarian outcome
+        selected_by_req = {}
         if cands_map:
             assignments = self.policy.select_batch(cands_map, window_start)
             used_drivers = set()
@@ -452,10 +448,6 @@ class SimulationSession:
                 "driver_id": d.driver_id, "eta_seconds": eta, "deadhead_miles": dist,
                 "driver_income": driver_income, **breakdown,
             })
-        # Sort by score for DISPLAY/ranking only -- this ranking is NOT what
-        # picks the winner (see selected_driver_id below, which comes from
-        # the real Hungarian joint solve and can legitimately differ from
-        # the local top scorer, since Hungarian optimizes the WHOLE batch).
         scored.sort(key=lambda x: (x["final_score"] if x["final_score"] is not None else -1e18), reverse=True)
         for rank, c in enumerate(scored, start=1):
             c["local_rank"] = rank

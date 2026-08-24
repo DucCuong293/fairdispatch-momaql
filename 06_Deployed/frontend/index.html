@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FairDispatch -- Trợ lý ra quyết định điều phối</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css?v=scenario-1">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">FairDispatch <span>Trung tâm điều phối xe công nghệ</span></div>
+    <div class="status" id="statusStrip">
+      <span><span class="dot off" id="backendDot"></span><span id="backendLabel">đang kiểm tra máy chủ...</span></span>
+      <span class="topbar-chip" id="chipPolicy" style="display:none;">Chiến lược: <b>--</b></span>
+      <span class="topbar-chip" id="chipBatch" style="display:none;">Đợt: <b>--</b></span>
+      <span class="topbar-chip" id="chipStatus" style="display:none;">Trạng thái: <b>--</b></span>
+      <span id="runIdLabel">Chưa có lần chạy</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="live">Mô phỏng trực tiếp</button>
+    <button class="tab-btn" data-tab="compare">So sánh chiến lược</button>
+    <button class="tab-btn" data-tab="horizon">Đánh giá dài hạn</button>
+    <button class="tab-btn" data-tab="history">Lịch sử lần chạy</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ TAB: LIVE SIMULATION ============ -->
+    <section class="tabpanel active" id="tab-live">
+      <div class="shell">
+
+        <div class="mapcol">
+          <div class="mapwrap">
+            <div id="dispatchMap"></div>
+            <div class="legend">
+              <span><span class="dot" style="background:#9CA3AF;"></span>Tài xế đang rảnh</span>
+              <span><span class="dot" style="background:#2563EB;"></span>Đang tới điểm đón</span>
+              <span><span class="dot" style="background:#6D28D9;"></span>Đang chở khách</span>
+              <span><span class="dot" style="background:#15803D;"></span>Đã gán điểm đón</span>
+              <span><span class="dot" style="background:#B45309;"></span>Đã gán điểm trả</span>
+              <span><span class="dot" style="background:#D97706;"></span>Bị từ chối</span>
+              <span><span class="dot" style="background:none;border:1.5px solid #6B7280;"></span>Không khả thi</span>
+              <span><span class="ln dashed" style="border-color:#9CA3AF;"></span>Chạy rỗng</span>
+              <span><span class="ln" style="border-color:#17365D;"></span>Chuyến khách</span>
+            </div>
+          </div>
+          <div class="chartsrow">
+            <div class="chart-card">
+              <h4>Phân bố thu nhập tài xế <span class="badge badge-liveengine">ENGINE TRỰC TIẾP</span></h4>
+              <div class="chart-sub">Bin thật từ income driver hiện tại (tính lại mỗi step)</div>
+              <div class="chart-body"><div class="hist-bars" id="histBars"></div></div>
+            </div>
+            <div class="chart-card">
+              <h4>Đường cong Lorenz <span class="badge badge-liveengine">ENGINE TRỰC TIẾP</span></h4>
+              <div class="chart-sub">Càng lệch xa đường chéo &mdash; càng bất bình đẳng thu nhập</div>
+              <div class="chart-body" id="lorenzWrap"><svg viewBox="0 0 200 100"></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rightpanel">
+
+          <!-- ===== CURRENT RUN ===== -->
+          <details class="card" id="currentRunCard" open>
+            <summary class="section-title">Lần chạy hiện tại <span class="badge badge-liveengine">ENGINE TRỰC TIẾP</span></summary>
+            <div class="status-line" id="batchLine">Chưa chạy batch nào. Bấm "Tạo lần chạy mới" rồi "Chạy".</div>
+            <span class="badge badge-buffering" id="bufferingBadge" style="display:none;">ĐANG TẢI ENGINE...</span>
+            <div class="status-grid" id="crGrid" style="display:none;">
+              <span class="k">Chiến lược</span><span class="v" id="crPolicy">--</span>
+              <span class="k">Mục tiêu</span><span class="v" id="crObjective">--</span>
+              <span class="k">Đội xe</span><span class="v" id="crDrivers">--</span>
+              <span class="k">Dự báo</span><span class="v" id="crForecast">--</span>
+              <span class="k">Bộ dữ liệu</span><span class="v">NYC TLC 2013 · Tập kiểm thử cuối đã chuẩn hóa</span>
+              <span class="k">Lát dữ liệu trực tiếp</span><span class="v" id="crSlice">--</span>
+            </div>
+            <div class="status-grid" id="statusGrid" style="display:none;">
+              <span class="k">Thời gian mô phỏng</span><span class="v" id="sgSimTime">--</span>
+              <span class="k">Chuyến đang chạy</span><span class="v" id="sgActiveTrips">--</span>
+              <span class="k">Đợt đang chờ</span><span class="v" id="sgQueued">--</span>
+              <span class="k">Engine đã xử lý</span><span class="v" id="sgServed">--</span>
+              <span class="k">Tiến độ</span><span class="v" id="sgProgress">--</span>
+            </div>
+            <div class="field" style="margin-top:10px;">
+              <label>Tìm tài xế / yêu cầu (theo ID)</label>
+              <div class="btnrow" style="margin-top:0;">
+                <input type="number" id="searchInput" placeholder="vd: 73" style="flex:1;">
+                <button class="btn secondary small" id="searchBtn">Tìm</button>
+              </div>
+              <p class="hint" id="searchResult"></p>
+            </div>
+          </details>
+
+          <!-- ===== OPERATING OBJECTIVE ===== -->
+          <details class="card" open>
+            <summary class="section-title">Mục tiêu vận hành</summary>
+            <div class="field" id="fieldObjective">
+              <div class="objective-row" id="objectiveRow">
+                <button class="obj-btn" data-lambda="0.1">Hiệu quả</button>
+                <button class="obj-btn active" data-lambda="0.5">Cân bằng</button>
+                <button class="obj-btn" data-lambda="0.9">Công bằng</button>
+                <button class="obj-btn" data-lambda="custom">Tùy chỉnh</button>
+              </div>
+              <p class="hint">Hiệu quả/Cân bằng/Công bằng ánh xạ sang &lambda; = 0.1/0.5/0.9 của MOMAQL hiện tại (nhãn vận hành, không phải khuyến nghị từ paper).</p>
+            </div>
+            <div class="field" id="fieldLam" style="display:none;">
+              <label>&lambda; (hiệu quả &larr;&rarr; công bằng): <span id="cfgLamVal">0.5</span></label>
+              <input type="range" id="cfgLam" min="0" max="1" step="0.1" value="0.5">
+            </div>
+            <p class="field-note" id="momaqlOnlyNote" style="display:none;">Mục tiêu / &lambda; / Dự báo chỉ áp dụng cho MOMAQL &mdash; chiến lược khác dùng công thức riêng (do chiến lược tự quyết định).</p>
+            <div class="field">
+              <label>Chiến lược điều phối</label>
+              <select id="cfgPolicy">
+                <option value="MOMAQL" selected>MOMAQL</option>
+                <option value="Greedy">Greedy</option>
+                <option value="Nearest">Nearest</option>
+                <option value="LAF">LAF</option>
+                <option value="Exact REASSIGN">Exact REASSIGN</option>
+              </select>
+            </div>
+          </details>
+
+          <!-- ===== SCENARIO (fleet/forecast/time/day/horizon presets) ===== -->
+          <details class="card" open>
+            <summary class="section-title">Kịch bản</summary>
+            <div class="field">
+              <label>Quy mô đội xe</label>
+              <div class="objective-row" id="fleetRow">
+                <button class="obj-btn" data-fleet="100">100</button>
+                <button class="obj-btn active" data-fleet="200">200</button>
+                <button class="obj-btn" data-fleet="400">400</button>
+                <button class="obj-btn" data-fleet="custom">Tùy chỉnh</button>
+              </div>
+            </div>
+            <div class="field" id="fieldDriversCustom" style="display:none;">
+              <label>Quy mô đội xe (tùy chỉnh)</label>
+              <input type="number" id="cfgDrivers" value="200" min="5" max="400">
+            </div>
+            <div class="field" id="fieldForecast">
+              <label><input type="checkbox" id="cfgForecast" checked style="width:auto;vertical-align:middle;"> Bật dự báo (nhìn trước)</label>
+            </div>
+            <div class="field">
+              <label>Khung giờ</label>
+              <div class="objective-row" id="timeRow">
+                <button class="obj-btn active" data-time="all">Cả ngày</button>
+                <button class="obj-btn" data-time="morning_peak">Sáng cao điểm</button>
+                <button class="obj-btn" data-time="evening_peak">Chiều cao điểm</button>
+                <button class="obj-btn" data-time="night">Ban đêm</button>
+                <button class="obj-btn" data-time="custom">Tùy chỉnh</button>
+              </div>
+              <p class="hint">Sáng 06&ndash;09 &middot; Chiều 17&ndash;19 &middot; Đêm 22&ndash;05 (qua nửa đêm).</p>
+            </div>
+            <div class="field" id="fieldTimeCustom" style="display:none;">
+              <div class="btnrow" style="margin-top:0;">
+                <div style="flex:1;"><label>Giờ bắt đầu (0-23)</label><input type="number" id="timeStartHour" min="0" max="23" value="6"></div>
+                <div style="flex:1;"><label>Giờ kết thúc (0-23)</label><input type="number" id="timeEndHour" min="0" max="23" value="9"></div>
+              </div>
+            </div>
+            <div class="field">
+              <label>Ngày trong tuần</label>
+              <div class="objective-row" id="dayRow">
+                <button class="obj-btn active" data-day="all">Cả tuần</button>
+                <button class="obj-btn" data-day="weekday">Ngày thường</button>
+                <button class="obj-btn" data-day="weekend">Cuối tuần</button>
+                <button class="obj-btn" data-day="custom">Tùy chỉnh</button>
+              </div>
+            </div>
+            <div class="field" id="fieldDayCustom" style="display:none;">
+              <div class="layer-list" id="dayCustomList" style="flex-direction:row;flex-wrap:wrap;gap:8px;">
+                <label><input type="checkbox" class="day-cb" value="0"> T2</label>
+                <label><input type="checkbox" class="day-cb" value="1"> T3</label>
+                <label><input type="checkbox" class="day-cb" value="2"> T4</label>
+                <label><input type="checkbox" class="day-cb" value="3"> T5</label>
+                <label><input type="checkbox" class="day-cb" value="4"> T6</label>
+                <label><input type="checkbox" class="day-cb" value="5"> T7</label>
+                <label><input type="checkbox" class="day-cb" value="6"> CN</label>
+              </div>
+            </div>
+            <div class="field" id="fieldHorizon">
+              <label>Phạm vi mô phỏng (lát demo trực tiếp)</label>
+              <p class="hint">Tập kiểm thử cuối đã chuẩn hóa &middot; 195.506 yêu cầu chuyến có sẵn</p>
+              <div class="objective-row" id="horizonRow">
+                <button class="obj-btn" data-limit="200">Nhanh</button>
+                <button class="obj-btn active" data-limit="3000">Tiêu chuẩn</button>
+                <button class="obj-btn" data-limit="10000">Mở rộng</button>
+                <button class="obj-btn" data-limit="custom">Tùy chỉnh</button>
+              </div>
+              <p class="hint" id="horizonWarning" style="display:none;color:var(--amber);">Số yêu cầu lớn sẽ chạy chậm hơn nhiều so với Nhanh/Tiêu chuẩn.</p>
+            </div>
+            <div class="field" id="fieldLimitCustom" style="display:none;">
+              <label>Giới hạn yêu cầu (tùy chỉnh)</label>
+              <input type="number" id="cfgLimit" value="3000" min="50" max="10000">
+            </div>
+            <p class="hint">Mô phỏng trực tiếp tối đa 10.000 yêu cầu chuyến; kết quả kiểm thử cuối đầy đủ nằm ở phần Kết quả kiểm chứng.</p>
+            <span class="badge badge-scenario-active" id="scenarioActiveBadge" style="display:none;"></span>
+            <div class="status-line" id="scenarioSummary" style="margin-top:8px;"></div>
+            <div class="btnrow">
+              <button class="btn" id="btnNewRun">Tạo lần chạy mới</button>
+              <button class="btn secondary" id="btnSaveRun" disabled title="Lưu scenario + metrics của run hiện tại vào trình duyệt (localStorage)">&#128190; Lưu lần chạy</button>
+            </div>
+            <p class="hint" id="saveRunResult"></p>
+          </details>
+
+          <!-- ===== SIMULATION / PLAYBACK ===== -->
+          <details class="card" open>
+            <summary class="section-title">Mô phỏng</summary>
+            <div class="btnrow">
+              <button class="btn secondary" id="btnStep" disabled>&#9654; Bước</button>
+              <button class="btn secondary" id="btnRun" disabled>Chạy</button>
+              <button class="btn secondary" id="btnPause" disabled>Tạm dừng</button>
+            </div>
+            <div class="btnrow">
+              <button class="btn secondary small" id="btnReset" disabled>Đặt lại</button>
+            </div>
+            <div class="field" id="fieldSpeed" style="margin-top:10px;">
+              <label title="Chỉ đổi tốc độ đồng hồ mô phỏng trực quan; quyết định điều phối không đổi.">Tốc độ mô phỏng</label>
+              <div class="speed-row" id="speedRow">
+                <button class="speed-btn" data-speed="0.5">0.5&times;</button>
+                <button class="speed-btn active" data-speed="1">1&times;</button>
+                <button class="speed-btn" data-speed="2">2&times;</button>
+                <button class="speed-btn" data-speed="4">4&times;</button>
+                <button class="speed-btn" data-speed="8">8&times;</button>
+              </div>
+              <p class="hint">Chỉ đổi tốc độ đồng hồ mô phỏng liên tục (global clock), không đổi engine/quyết định thật.</p>
+            </div>
+            <p class="hint" id="progressHint"></p>
+          </details>
+
+          <!-- ===== SERVICE HEALTH ===== -->
+          <details class="card" open>
+            <summary class="section-title">Tình trạng phục vụ <span class="hint">(cửa sổ hiện tại)</span></summary>
+            <div class="kpi-row"><span class="l">Tỷ lệ phục vụ</span><span class="n" id="svcRateVal">--</span></div>
+            <div class="progress-track"><div class="progress-fill" id="svcRateBar" style="width:0%;"></div></div>
+            <div class="status-grid" style="margin-top:8px;">
+              <span class="k">Đã gán chuyến</span><span class="v" id="svcAssigned">--</span>
+              <span class="k">Bị từ chối</span><span class="v" id="svcDeclined">--</span>
+              <span class="k">Không khả thi</span><span class="v" id="svcInfeasible">--</span>
+            </div>
+            <hr style="border:none;border-top:1px solid var(--line);margin:10px 0;">
+            <div class="kpi-row"><span class="l">ETA đón trung bình</span><span class="n" id="etaAvg">--</span></div>
+            <div class="kpi-row"><span class="l">ETA đón P90</span><span class="n" id="etaP90">--</span></div>
+            <div class="kpi-row"><span class="l">ETA đón lâu nhất</span><span class="n" id="etaWorst">--</span></div>
+            <hr style="border:none;border-top:1px solid var(--line);margin:10px 0;">
+            <div class="kpi-row"><span class="l">Nhu cầu (yêu cầu)</span><span class="n" id="demandVal">--</span></div>
+            <div class="kpi-row"><span class="l">Nguồn cung (tài xế khả dụng)</span><span class="n" id="supplyVal">--</span></div>
+            <div class="kpi-row"><span class="l">Nhu cầu / Nguồn cung</span><span class="n" id="ratioVal">--</span></div>
+            <div class="status-line" id="ratioStatus"></div>
+          </details>
+
+          <!-- ===== FAIRNESS ===== -->
+          <details class="card" open>
+            <summary class="section-title">Công bằng thu nhập</summary>
+            <div class="gauge-row">
+              <div class="gauge"><svg width="70" height="70" viewBox="0 0 70 70">
+                <circle cx="35" cy="35" r="28" fill="none" stroke="#eef2f2" stroke-width="7"/>
+                <circle id="giniGauge" cx="35" cy="35" r="28" fill="none" stroke="#17365D" stroke-width="7" stroke-linecap="round" transform="rotate(-90 35 35)" stroke-dasharray="0 175.9"/>
+                <text x="35" y="40" text-anchor="middle" font-size="13" font-weight="700" fill="#1A1A1A" id="giniGaugeText">--</text>
+              </svg><div class="gauge-label">Gini (thấp hơn tốt hơn)</div></div>
+            </div>
+            <div class="kpi-row"><span class="l">Thu nhập trung bình đội xe</span><span class="n" id="fairMean">--</span></div>
+            <div class="kpi-row"><span class="l">TB nhóm 10% thấp nhất</span><span class="n" id="fairBottom10">--</span></div>
+            <div class="kpi-row"><span class="l">TB nhóm 10% cao nhất</span><span class="n" id="fairTop10">--</span></div>
+            <div class="kpi-row"><span class="l">Cao nhất / Thấp nhất</span><span class="n" id="fairRatio">--</span></div>
+            <hr style="border:none;border-top:1px solid var(--line);margin:10px 0;">
+            <div class="field" style="margin-bottom:4px;">
+              <label title="Ngưỡng vận hành do người dùng tự đặt, không phải khuyến nghị từ paper.">Gini tối đa (ngưỡng cảnh báo, tự đặt)</label>
+              <input type="number" id="maxGiniInput" min="0" max="1" step="0.01" value="0.25" style="width:100px;">
+            </div>
+            <div class="status-line" id="fairAlertLine"></div>
+          </details>
+
+          <!-- ===== ALERTS ===== -->
+          <details class="card" open>
+            <summary class="section-title">Cảnh báo</summary>
+            <div id="alertsList"><div class="empty">Chưa có dữ liệu batch nào.</div></div>
+          </details>
+
+          <!-- ===== MAP LAYERS ===== -->
+          <details class="card">
+            <summary class="section-title">Lớp bản đồ</summary>
+            <div class="layer-list">
+              <label><input type="checkbox" id="layerDrivers" checked> Tài xế</label>
+              <label><input type="checkbox" id="layerRequests" checked> Yêu cầu (điểm đón/trả)</label>
+              <label><input type="checkbox" id="layerRoutes" checked> Tuyến đang chạy</label>
+              <label><input type="checkbox" id="layerTrails" checked> Vệt di chuyển gần đây</label>
+              <label><input type="checkbox" id="layerDeclined" checked> Yêu cầu bị từ chối</label>
+              <label><input type="checkbox" id="layerInfeasible" checked> Yêu cầu không khả thi</label>
+            </div>
+            <p class="hint">Chỉ điều khiển hiển thị trực quan, không đổi engine/quyết định thật.</p>
+          </details>
+
+          <!-- ===== WHY THIS DRIVER (signature feature, giữ nguyên) ===== -->
+          <div class="card tracker" id="trackerCard">
+            <h3 class="section-title tracker-title">Vì sao chọn tài xế này? <button class="tracker-close" id="trackerClose" title="Đóng (Esc)" style="display:none;">&times;</button></h3>
+            <div class="empty" id="trackerEmpty">Click một dòng trong log hoặc một marker trên map để xem giải thích.</div>
+            <div id="trackerBody" style="display:none;"></div>
+          </div>
+
+          <!-- ===== KPI (Utility, giữ nguyên số liệu, gộp gọn) ===== -->
+          <div class="card">
+            <h3 class="section-title">Hiệu quả (từ engine thật)</h3>
+            <div class="kpi-row"><span class="l">Tổng hiệu quả ($)</span><span class="n" id="kpiUtility">--</span></div>
+            <div class="kpi-row"><span class="l">Yêu cầu đã phục vụ</span><span class="n" id="kpiServed">--</span></div>
+            <div class="kpi-row"><span class="l">Thu nhập TB mỗi tài xế ($)</span><span class="n" id="kpiAvgIncome">--</span></div>
+            <div class="kpi-row"><span class="l">Chi phí chạy rỗng TB/chuyến ($)</span><span class="n" id="kpiDeadhead">--</span></div>
+          </div>
+
+          <!-- ===== ADVANCED / RESEARCH (collapsible, native <details>) ===== -->
+          <details class="card" id="advancedPanel">
+            <summary class="section-title" style="cursor:pointer;">Nâng cao / Nghiên cứu</summary>
+            <div class="field">
+              <label title="Khởi tạo tất định để đảm bảo kết quả có thể lặp lại.">Seed</label>
+              <input type="number" id="cfgSeed" value="20260721">
+            </div>
+            <div class="field">
+              <label title="Hệ số chiết khấu cho Giá trị khu vực tương lai (Q-table). Chỉ dùng khi Dự báo BẬT.">&gamma; (gamma)</label>
+              <input type="number" id="cfgGamma" value="0.9" min="0" max="1" step="0.05">
+            </div>
+            <div class="field">
+              <label title="Tốc độ học của Q-table (đã train sẵn, cố định khi đánh giá).">&alpha; (alpha)</label>
+              <input type="number" id="cfgAlpha" value="0.1" min="0.01" max="1" step="0.01">
+            </div>
+            <div class="status-grid">
+              <span class="k">Ngưỡng ETA</span><span class="v" id="advEtaThreshold">--</span>
+              <span class="k">Cửa sổ đợt</span><span class="v" id="advBatchWindow">--</span>
+              <span class="k">Chi phí chạy rỗng</span><span class="v" id="advDeadheadCost">--</span>
+            </div>
+            <p class="hint">3 dòng trên là hằng số thật của engine (fixed) &mdash; không phải input giả.</p>
+          </details>
+
+        </div>
+
+        <div class="logwrap">
+          <div class="logwrap-inner">
+            <table class="rows" id="assignTable">
+              <colgroup>
+                <col style="width:60px;"><col style="width:70px;"><col style="width:95px;"><col style="width:75px;">
+                <col style="width:105px;"><col style="width:105px;"><col style="width:95px;">
+              </colgroup>
+              <thead><tr><th>Đợt</th><th>YC</th><th>Tài xế</th><th class="num">Giá cước</th><th>Khu đón</th><th>Khu trả</th><th>Giai đoạn</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============ TAB: COMPARE POLICIES ============ -->
+    <section class="tabpanel" id="tab-compare">
+      <h2 class="section-title">So sánh MOMAQL đầy đủ và Không dự báo <span class="badge badge-verified">KẾT QUẢ KIỂM CHỨNG</span></h2>
+      <p class="hint" id="compareSource">Đang tải artifacts/final_test/ablation/test_ablation_results.csv...</p>
+      <div class="compare-cards" id="compareCards"></div>
+      <div class="tradeoff" id="tradeoffLine"></div>
+      <p class="hint">Không có badge "Recommended" &mdash; đây là trade-off đa mục tiêu, người vận hành tự chọn ưu tiên.</p>
+
+      <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
+
+      <h2 class="section-title">So sánh nhanh trực tiếp <span class="badge badge-liveengine">ENGINE TRỰC TIẾP (minh hoạ)</span></h2>
+      <p class="hint">Chạy trực tiếp 2 phiên trực tiếp nhỏ (Đầy đủ và Không dự báo) trên cùng seed/slice để xem engine tính toán tại chỗ. Kết quả trên slice nhỏ, không đại diện thống kê như bảng kết quả kiểm chứng phía trên.</p>
+      <div class="btnrow">
+        <button class="btn secondary" id="btnLiveCompare">Chạy so sánh nhanh trực tiếp (drivers=100, request_limit=1500)</button>
+      </div>
+      <div id="liveCompareResult"></div>
+    </section>
+
+    <!-- ============ TAB: LONG-HORIZON ============ -->
+    <section class="tabpanel" id="tab-horizon">
+      <h2 class="section-title">Dòng thời gian đánh giá dài hạn <span class="badge badge-verified">KẾT QUẢ KIỂM CHỨNG</span></h2>
+      <p class="hint">Đầy đủ và Không dự báo trên cùng một quỹ đạo 37 ngày, trung bình 5 seed. Kéo slider để xem từng checkpoint.</p>
+      <div class="day-slider-wrap">
+        <input type="range" id="daySlider" min="0" max="10" step="1" value="0">
+        <div class="day-labels"><span>Ngày 1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>14</span><span>21</span><span>28</span><span>37</span></div>
+      </div>
+      <div class="compare-cards" id="horizonCards"></div>
+    </section>
+
+    <!-- ============ TAB: RUN HISTORY ============ -->
+    <section class="tabpanel" id="tab-history">
+      <h2 class="section-title">Lịch sử lần chạy (phiên này)</h2>
+      <table class="rows" id="historyTable">
+        <thead><tr><th>ID lần chạy</th><th>Chiến lược</th><th class="num">Tài xế</th><th class="num">&lambda;</th><th>Dự báo</th><th>Trạng thái</th><th class="num">Hiệu quả</th><th class="num">Gini</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="hint">Lịch sử lưu trong bộ nhớ máy chủ (in-memory) &mdash; mất khi khởi động lại máy chủ. Đúng bản chất "prototype", không giả cơ sở dữ liệu.</p>
+    </section>
+
+  </main>
+
+  <footer class="provenance" id="provenanceStrip">Đang tải thông tin nguồn gốc...</footer>
+
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js?v=scenario-1"></script>
+</body>
+</html>

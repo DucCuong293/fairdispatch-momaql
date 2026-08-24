@@ -1,0 +1,89 @@
+{
+  "built_from_raw_test_parquet": {
+    "path": "D:\\ProjectVSF\\fairdispatch_v3_clean\\data\\test.parquet",
+    "sha256": "96e7133fec5f55a8260b5e2fc26327405c51e67529e2a96662a003cd6c66bc72",
+    "size_bytes": 48188109,
+    "expected_sha256": "96e7133fec5f55a8260b5e2fc26327405c51e67529e2a96662a003cd6c66bc72",
+    "expected_size_bytes": 48188109,
+    "matches_canonical": true
+  },
+  "quality_transform_manifest_used": "D:\\ProjectVSF\\FairDispatch_MOMAQL_Fair_Ride_Hailing_Dispatch_Replication\\03_Source_Code_Va_Ket_Qua\\final_test\\test_quality_transform_manifest.json",
+  "boundary_epoch_second": 1374412620,
+  "stats": {
+    "path": "D:\\ProjectVSF\\fairdispatch_v3_clean\\data\\test.parquet",
+    "original_rows": 195510,
+    "temporal_boundary_excluded": 3,
+    "duration_repaired": 32,
+    "duration_excluded": 1,
+    "final_evaluated_rows": 195506,
+    "excluded_row_ids": {
+      "temporal_boundary": [
+        0,
+        1,
+        2
+      ],
+      "duration_invalid": [
+        164421
+      ]
+    },
+    "repaired_row_ids": [
+      62084,
+      62586,
+      62829,
+      63006,
+      63065,
+      63157,
+      63604,
+      64012,
+      64111,
+      64310,
+      64499,
+      64643,
+      64665,
+      64747,
+      160643,
+      161076,
+      162749,
+      162964,
+      163027,
+      163267,
+      163899,
+      164498,
+      164716,
+      164799,
+      165058,
+      165886,
+      166153,
+      166209,
+      166248,
+      194055,
+      194111,
+      195429
+    ],
+    "t0_epoch_seconds": 1374412627
+  },
+  "output": {
+    "path": "data/test_eval.parquet",
+    "rows": 195506,
+    "sha256": "2984be13d2c13a07ce4ff29ada928595ecd8079848b55d18a522dedd68c91b08",
+    "size_bytes": 6880346,
+    "columns": [
+      "source_row_index",
+      "pickup_ts",
+      "dropoff_ts",
+      "pickup_latitude",
+      "pickup_longitude",
+      "dropoff_latitude",
+      "dropoff_longitude",
+      "fare_amount",
+      "duration_seconds",
+      "duration_seconds_raw",
+      "quality_action",
+      "pickup_zone_id",
+      "dropoff_zone_id",
+      "pickup_hour",
+      "dropoff_hour",
+      "pickup_weekday"
+    ]
+  }
+}

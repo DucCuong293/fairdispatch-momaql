@@ -3,4 +3,5 @@ __pycache__/
 .pytest_cache/
 .deepeval/
 *.parquet
+!06_Deployed/data/test_eval.parquet
 .env

@@ -153,8 +153,8 @@
     return { radius: phase === "idle" ? 3 : 4, color: c, weight: 1, fillOpacity: .95, fillColor: c };
   }
   function driverTooltip(driverId, phase, income, trips) {
-    var label = phase === "deadhead" ? "Đang tới điểm đón" : phase === "onboard" ? "Đang chở khách" : "Idle";
-    return "Driver #" + driverId + " -- " + label + " -- $" + fmtNum(income, 2) + " -- " + trips + " trip";
+    var label = phase === "deadhead" ? "Đang tới điểm đón" : phase === "onboard" ? "Đang chở khách" : "Đang rảnh";
+    return "Tài xế #" + driverId + " -- " + label + " -- $" + fmtNum(income, 2) + " -- " + trips + " chuyến";
   }
 
   function getOrCreateDriverMarker(driverId, latlng, phase) {
@@ -206,9 +206,9 @@
     tr.className = "clickable";
     tr.dataset.reqIdx = trip.reqIdx;
     tr.dataset.batch = trip.batch;
-    tr.innerHTML = "<td>#" + trip.batch + "</td><td>#" + trip.reqIdx + "</td><td>Driver #" + trip.driverId +
+    tr.innerHTML = "<td>#" + trip.batch + "</td><td>#" + trip.reqIdx + "</td><td>Tài xế #" + trip.driverId +
       "</td><td class='num'>" + fmtMoney(trip.fare) + "</td><td>" + trip.pickupZone + "</td><td>" + trip.dropoffZone +
-      "</td><td class='phase-cell'>TO PICKUP</td>";
+      "</td><td class='phase-cell'>ĐANG TỚI ĐÓN</td>";
     tr.addEventListener("click", function () { toggleAssignmentSelection(trip.reqIdx, trip.batch); });
     tbody.insertBefore(tr, tbody.firstChild); // newest first
     recentRows.unshift({ reqIdx: trip.reqIdx, tr: tr });
@@ -222,7 +222,7 @@
     if (!trip.rowEl) return;
     var cell = trip.rowEl.querySelector(".phase-cell");
     if (!cell) return;
-    cell.textContent = trip.phase === "deadhead" ? "TO PICKUP" : trip.phase === "onboard" ? "ON TRIP" : "DONE";
+    cell.textContent = trip.phase === "deadhead" ? "ĐANG TỚI ĐÓN" : trip.phase === "onboard" ? "ĐANG CHỞ KHÁCH" : "HOÀN TẤT";
   }
   function clearAssignTableRows() {
     document.querySelector("#assignTable tbody").innerHTML = "";
@@ -246,13 +246,13 @@
 
     (batch.declined_requests || []).forEach(function (req) {
       var m = L.circleMarker([req.pickup_lat, req.pickup_lon], { radius: 4, color: "#D97706", weight: 2, fillColor: "#D97706", fillOpacity: .6 })
-        .bindTooltip("Declined req#" + req.req_idx + " -- zone " + req.pickup_zone)
+        .bindTooltip("Bị từ chối -- yêu cầu #" + req.req_idx + " -- khu " + req.pickup_zone)
         .addTo(mapLayers.declined);
       ephemeralRequests.push({ marker: m, layer: mapLayers.declined, expireAtSim: playback.simTime + EPHEMERAL_REQUEST_RETENTION_SIM_SEC });
     });
     (batch.infeasible_requests || []).forEach(function (req) {
       var m = L.circleMarker([req.pickup_lat, req.pickup_lon], { radius: 4, color: "#6B7280", weight: 1.4, fillOpacity: 0 })
-        .bindTooltip("Infeasible req#" + req.req_idx + " -- khong co driver trong ban kinh 600s -- zone " + req.pickup_zone)
+        .bindTooltip("Không khả thi -- yêu cầu #" + req.req_idx + " -- không có tài xế trong bán kính 600s -- khu " + req.pickup_zone)
         .addTo(mapLayers.infeasible);
       ephemeralRequests.push({ marker: m, layer: mapLayers.infeasible, expireAtSim: playback.simTime + EPHEMERAL_REQUEST_RETENTION_SIM_SEC });
     });
@@ -288,10 +288,10 @@
       trip.deadheadLine = L.polyline([startLatLng, pickupLatLng], { color: "#9CA3AF", weight: 1.6, dashArray: "4,4", opacity: .85 }).addTo(mapLayers.activeRoute);
       trip.tripLine = L.polyline([pickupLatLng, dropoffLatLng], { color: "#17365D", weight: 2, opacity: .3 }).addTo(mapLayers.activeRoute);
       trip.pickupMarker = L.circleMarker(pickupLatLng, { radius: 4.5, color: "#fff", weight: 1.5, fillColor: "#15803D", fillOpacity: 1 })
-        .bindTooltip("Pickup req#" + a.req_idx + " -- zone " + a.pickup_zone + " -- $" + fmtNum(a.fare, 2))
+        .bindTooltip("Đón khách -- yêu cầu #" + a.req_idx + " -- khu " + a.pickup_zone + " -- $" + fmtNum(a.fare, 2))
         .addTo(mapLayers.requestMarkers);
       trip.dropoffMarker = L.circleMarker(dropoffLatLng, { radius: 4.5, color: "#fff", weight: 1.5, fillColor: "#B45309", fillOpacity: 1 })
-        .bindTooltip("Dropoff req#" + a.req_idx + " -- zone " + a.dropoff_zone)
+        .bindTooltip("Trả khách -- yêu cầu #" + a.req_idx + " -- khu " + a.dropoff_zone)
         .addTo(mapLayers.requestMarkers);
       [trip.deadheadLine, trip.tripLine, trip.pickupMarker, trip.dropoffMarker].forEach(function (layer) {
         layer.on("click", function () { toggleAssignmentSelection(trip.reqIdx, trip.batch); });
@@ -473,7 +473,7 @@
     var relS = Math.floor(sec % 86400);
     var day = Math.floor(sec / 86400) + 1;
     var hh = Math.floor(relS / 3600), mm = Math.floor((relS % 3600) / 60), ss = Math.floor(relS % 60);
-    var relLabel = "Day " + day + " · " + p2(hh) + ":" + p2(mm) + ":" + p2(ss);
+    var relLabel = "Ngày " + day + " · " + p2(hh) + ":" + p2(mm) + ":" + p2(ss);
     if (t0EpochSeconds === null || t0EpochSeconds === undefined) return relLabel;
     var d = new Date((t0EpochSeconds + sec) * 1000);
     var dateLabel = p2(d.getUTCDate()) + "/" + p2(d.getUTCMonth() + 1) + "/" + d.getUTCFullYear() +
@@ -609,9 +609,9 @@
     });
   });
   function currentObjectiveLabel() {
-    if (elPolicySelect.value !== "MOMAQL") return "Policy-defined";
+    if (elPolicySelect.value !== "MOMAQL") return "Do chiến lược quyết định";
     var active = document.querySelector(".obj-btn[data-lambda].active");
-    return active ? active.textContent : "Custom";
+    return active ? active.textContent : "Tùy chỉnh";
   }
 
   // ---- Simulation Horizon presets: user-facing language for request_limit
@@ -740,7 +740,7 @@
           return days.length ? days.join("/") : "(chưa chọn ngày)";
         })();
     var horizonBtn = document.querySelector(".obj-btn[data-limit].active");
-    var horizonLabel = (horizonBtn ? horizonBtn.textContent : "Custom") + " · " +
+    var horizonLabel = (horizonBtn ? horizonBtn.textContent : "Tùy chỉnh") + " · " +
       (parseInt(document.getElementById("cfgLimit").value, 10) || 0).toLocaleString("en-US") + " request";
     var fleetVal = document.getElementById("cfgDrivers").value;
 
@@ -754,7 +754,7 @@
     var badge = document.getElementById("scenarioActiveBadge");
     if (isActive) {
       badge.style.display = "inline-block";
-      badge.textContent = "SCENARIO FILTER ACTIVE · " + dayLabel + " · " + timeLabel;
+      badge.textContent = "BỘ LỌC KỊCH BẢN ĐANG BẬT · " + dayLabel + " · " + timeLabel;
     } else {
       badge.style.display = "none";
     }
@@ -790,16 +790,16 @@
       var m = driverMarkers.get(id);
       if (leafletMap) leafletMap.panTo(m.getLatLng());
       m.openTooltip();
-      resultEl.innerHTML = "Tìm thấy <b>Driver #" + id + "</b> &mdash; đã pan map tới vị trí hiện tại.";
+      resultEl.innerHTML = "Tìm thấy <b>Tài xế #" + id + "</b> &mdash; đã pan map tới vị trí hiện tại.";
       return;
     }
     var trip = findTrip(id);
     if (trip) {
       toggleAssignmentSelection(trip.reqIdx, trip.batch);
-      resultEl.innerHTML = "Tìm thấy <b>Request #" + id + "</b> (batch #" + trip.batch + ") &mdash; đã mở Why this driver.";
+      resultEl.innerHTML = "Tìm thấy <b>Yêu cầu #" + id + "</b> (đợt #" + trip.batch + ") &mdash; đã mở Vì sao chọn tài xế này.";
       return;
     }
-    resultEl.textContent = "Not in current playback buffer -- Driver #" + id + " / Request #" + id + " không có trong dữ liệu đang hiển thị.";
+    resultEl.textContent = "Không có trong bộ đệm phát lại hiện tại -- Tài xế #" + id + " / Yêu cầu #" + id + " không có trong dữ liệu đang hiển thị.";
   }
   document.getElementById("searchBtn").addEventListener("click", doSearch);
   document.getElementById("searchInput").addEventListener("keydown", function (e) { if (e.key === "Enter") doSearch(); });
@@ -900,23 +900,23 @@
   function evaluateAlerts(svc, fair) {
     var alerts = [];
     if (svc.serviceRate !== null && svc.serviceRate < MIN_SERVICE_RATE) {
-      alerts.push({ sev: "warning", title: "Service Rate below target", detail: (svc.serviceRate * 100).toFixed(1) + "% < " + (MIN_SERVICE_RATE * 100) + "%" });
+      alerts.push({ sev: "warning", title: "Tỷ lệ phục vụ dưới ngưỡng", detail: (svc.serviceRate * 100).toFixed(1) + "% < " + (MIN_SERVICE_RATE * 100) + "%" });
     }
     if (svc.etaP90 !== null && svc.etaP90 > MAX_PICKUP_P90_SEC) {
-      alerts.push({ sev: "warning", title: "Pickup ETA P90 above target", detail: (svc.etaP90 / 60).toFixed(1) + "m > " + (MAX_PICKUP_P90_SEC / 60) + "m" });
+      alerts.push({ sev: "warning", title: "ETA đón P90 vượt ngưỡng", detail: (svc.etaP90 / 60).toFixed(1) + "m > " + (MAX_PICKUP_P90_SEC / 60) + "m" });
     }
     if (fair.gini > fair.maxGini) {
       alerts.push({ sev: "critical", title: "Gini above fairness guardrail", detail: fmtNum(fair.gini, 3) + " > " + fmtNum(fair.maxGini, 3) });
     }
     if (svc.ratio !== null && !isFinite(svc.ratio)) {
-      alerts.push({ sev: "critical", title: "No feasible driver supply", detail: svc.demand + " request, 0 driver khả dụng" });
+      alerts.push({ sev: "critical", title: "Không có tài xế khả thi", detail: svc.demand + " request, 0 driver khả dụng" });
     } else if (svc.ratio !== null && svc.ratio > SHORTAGE_RATIO_THRESHOLD) {
-      alerts.push({ sev: "warning", title: "Demand/Supply shortage", detail: svc.ratio.toFixed(2) + "× (demand " + svc.demand + " / supply " + svc.supply + ")" });
+      alerts.push({ sev: "warning", title: "Thiếu hụt nguồn cung so với nhu cầu", detail: svc.ratio.toFixed(2) + "× (demand " + svc.demand + " / supply " + svc.supply + ")" });
     }
     var list = document.getElementById("alertsList");
     if (!alerts.length) {
       list.innerHTML = "<div class='alert-item'><span class='alert-dot ok'></span><div><div class='title'>Tất cả trong ngưỡng</div>" +
-        "<div class='detail'>Service Rate / ETA / Fairness / Supply đều đạt threshold hiện tại.</div></div></div>";
+        "<div class='detail'>Tỷ lệ phục vụ / ETA / Công bằng / Nguồn cung đều đạt ngưỡng hiện tại.</div></div></div>";
       return;
     }
     list.innerHTML = alerts.map(function (a) {
@@ -1189,13 +1189,13 @@
         " &rarr; " + r.request.dropoff_zone + " &middot; batch #" + batch + "</div>";
       html += "<div class='fare'>" + fmtMoney(r.request.fare) + " <small>fare</small></div>";
       if (trip) {
-        var phaseLabel = trip.phase === "deadhead" ? "Deadheading to pickup" : trip.phase === "onboard" ? "Passenger onboard" : "Trip completed";
+        var phaseLabel = trip.phase === "deadhead" ? "Đang tới điểm đón" : trip.phase === "onboard" ? "Đang chở khách" : "Đã hoàn tất chuyến";
         var pct = trip.phase === "deadhead"
           ? (trip.pickupSim > trip.startSim ? clamp01((playback.simTime - trip.startSim) / (trip.pickupSim - trip.startSim)) : 1)
           : trip.phase === "onboard"
             ? (trip.dropoffSim > trip.pickupSim ? clamp01((playback.simTime - trip.pickupSim) / (trip.dropoffSim - trip.pickupSim)) : 1)
             : 1;
-        html += "<div class='qrow' style='border-top:none;'><span>Visual phase: <b>" + phaseLabel + "</b></span><b>" + Math.round(pct * 100) + "%</b></div>";
+        html += "<div class='qrow' style='border-top:none;'><span>Giai đoạn hiển thị: <b>" + phaseLabel + "</b></span><b>" + Math.round(pct * 100) + "%</b></div>";
       }
       if (r.selected_local_rank && r.selected_local_rank > 1) {
         html += "<div class='badge-global'>GLOBAL OPTIMUM</div>" +
@@ -1217,9 +1217,9 @@
           if (c.formula) {
             html += "<div class='hint' style='margin:2px 0 8px;'>" + c.formula + "</div>";
           } else {
-            html += scoreBar("Immediate Utility", c.immediate_utility, maxAbs);
-            html += scoreBar("Future Zone Value", c.future_zone_value, maxAbs);
-            html += scoreBar("Fairness Adjustment", c.fairness_adjustment, maxAbs);
+            html += scoreBar("Giá trị tức thời", c.immediate_utility, maxAbs);
+            html += scoreBar("Giá trị khu vực tương lai", c.future_zone_value, maxAbs);
+            html += scoreBar("Điều chỉnh công bằng", c.fairness_adjustment, maxAbs);
           }
         }
       });
@@ -1250,7 +1250,7 @@
       var cards = document.getElementById("compareCards");
       var byName = {};
       r.rows.forEach(function (row) { byName[row.ablation] = row; });
-      var order = [["full", "Full MOMAQL", "full"], ["no_forecast", "No Forecast", "noforecast"], ["no_fairness", "No Fairness", "nofairness"]];
+      var order = [["full", "MOMAQL đầy đủ", "full"], ["no_forecast", "Không dự báo", "noforecast"], ["no_fairness", "Không công bằng", "nofairness"]];
       cards.innerHTML = "";
       order.forEach(function (o) {
         var row = byName[o[0]];
@@ -1258,7 +1258,7 @@
         var div = document.createElement("div");
         div.className = "compare-card " + o[2];
         div.innerHTML = "<h3>" + o[1] + "</h3>" +
-          "<div class='n'>" + fmtMoney(parseFloat(row.utility_mean)) + "</div><div class='l'>Utility</div>" +
+          "<div class='n'>" + fmtMoney(parseFloat(row.utility_mean)) + "</div><div class='l'>Hiệu quả</div>" +
           "<div class='n' style='margin-top:8px;'>" + fmtNum(parseFloat(row.gini_mean), 3) + "</div><div class='l'>Gini (thấp hơn = công bằng hơn)</div>";
         cards.appendChild(div);
       });
@@ -1266,7 +1266,7 @@
       if (full && nf) {
         var diff = ((parseFloat(full.utility_mean) - parseFloat(nf.utility_mean)) / parseFloat(nf.utility_mean) * 100).toFixed(1);
         document.getElementById("tradeoffLine").innerHTML =
-          "Full: <b>+" + diff + "% Utility</b> so với No-Forecast &nbsp;&middot;&nbsp; No-Forecast: <b>Gini thấp hơn (công bằng hơn)</b> &mdash; đây là trade-off, không phải Full thắng tuyệt đối.";
+          "Đầy đủ: <b>+" + diff + "% Hiệu quả</b> so với Không dự báo &nbsp;&middot;&nbsp; Không dự báo: <b>Gini thấp hơn (công bằng hơn)</b> &mdash; đây là trade-off, không phải phương án Đầy đủ thắng tuyệt đối.";
       }
     } catch (e) {
       document.getElementById("compareSource").textContent = "Lỗi tải replay: " + e.message;
@@ -1277,7 +1277,7 @@
     var out = document.getElementById("liveCompareResult");
     var btn = document.getElementById("btnLiveCompare");
     btn.disabled = true;
-    out.innerHTML = "<div class='loading'>Đang chạy Full...<br>Đang chạy No Forecast...</div>";
+    out.innerHTML = "<div class='loading'>Đang chạy Đầy đủ...<br>Đang chạy Không dự báo...</div>";
     var t0 = performance.now();
     try {
       var r = await api("/compare/live", {
@@ -1286,11 +1286,11 @@
       });
       var f = r.results.full, nf = r.results.no_forecast;
       out.innerHTML = "<p class='hint'>" + r.note + " (" + ((performance.now() - t0) / 1000).toFixed(1) + "s)</p><div class='compare-cards'>" +
-        "<div class='compare-card full'><h3>Full (live)</h3><div class='n'>" + fmtMoney(f.utility) + "</div><div class='l'>Utility</div><div class='n' style='margin-top:8px;'>" + fmtNum(f.gini, 3) + "</div><div class='l'>Gini</div><div class='l' style='margin-top:6px;'>Served " + f.served + "/" + f.requests_used + " (" + f.n_drivers_actual + " driver)</div></div>" +
-        "<div class='compare-card noforecast'><h3>No Forecast (live)</h3><div class='n'>" + fmtMoney(nf.utility) + "</div><div class='l'>Utility</div><div class='n' style='margin-top:8px;'>" + fmtNum(nf.gini, 3) + "</div><div class='l'>Gini</div><div class='l' style='margin-top:6px;'>Served " + nf.served + "/" + nf.requests_used + " (" + nf.n_drivers_actual + " driver)</div></div>" +
+        "<div class='compare-card full'><h3>Đầy đủ (trực tiếp)</h3><div class='n'>" + fmtMoney(f.utility) + "</div><div class='l'>Hiệu quả</div><div class='n' style='margin-top:8px;'>" + fmtNum(f.gini, 3) + "</div><div class='l'>Gini</div><div class='l' style='margin-top:6px;'>Đã phục vụ " + f.served + "/" + f.requests_used + " (" + f.n_drivers_actual + " tài xế)</div></div>" +
+        "<div class='compare-card noforecast'><h3>Không dự báo (trực tiếp)</h3><div class='n'>" + fmtMoney(nf.utility) + "</div><div class='l'>Hiệu quả</div><div class='n' style='margin-top:8px;'>" + fmtNum(nf.gini, 3) + "</div><div class='l'>Gini</div><div class='l' style='margin-top:6px;'>Đã phục vụ " + nf.served + "/" + nf.requests_used + " (" + nf.n_drivers_actual + " tài xế)</div></div>" +
         "</div>";
     } catch (e) {
-      out.innerHTML = "<div class='errbox'>Live Quick Compare failed<br>" + e.message + "</div>";
+      out.innerHTML = "<div class='errbox'>So sánh nhanh trực tiếp thất bại<br>" + e.message + "</div>";
     }
     btn.disabled = false;
   });
@@ -1345,10 +1345,10 @@
     if (!data || !data.full || !data.no_forecast) { cards.innerHTML = "<p class='hint'>Không có dữ liệu cho ngày " + day + ".</p>"; return; }
     var utilDiff = ((data.full.utility - data.no_forecast.utility) / data.no_forecast.utility * 100).toFixed(2);
     cards.innerHTML =
-      "<div class='compare-card full'><h3>Full &mdash; Day " + day + "</h3><div class='n'>" + fmtMoney(data.full.utility) + "</div><div class='l'>Utility</div><div class='n' style='margin-top:8px;'>" + fmtNum(data.full.gini, 4) + "</div><div class='l'>Gini</div></div>" +
-      "<div class='compare-card noforecast'><h3>No Forecast &mdash; Day " + day + "</h3><div class='n'>" + fmtMoney(data.no_forecast.utility) + "</div><div class='l'>Utility</div><div class='n' style='margin-top:8px;'>" + fmtNum(data.no_forecast.gini, 4) + "</div><div class='l'>Gini</div></div>";
+      "<div class='compare-card full'><h3>Đầy đủ &mdash; Ngày " + day + "</h3><div class='n'>" + fmtMoney(data.full.utility) + "</div><div class='l'>Hiệu quả</div><div class='n' style='margin-top:8px;'>" + fmtNum(data.full.gini, 4) + "</div><div class='l'>Gini</div></div>" +
+      "<div class='compare-card noforecast'><h3>Không dự báo &mdash; Ngày " + day + "</h3><div class='n'>" + fmtMoney(data.no_forecast.utility) + "</div><div class='l'>Hiệu quả</div><div class='n' style='margin-top:8px;'>" + fmtNum(data.no_forecast.gini, 4) + "</div><div class='l'>Gini</div></div>";
     var existing = document.getElementById("horizonDiffLine");
-    var diffHtml = "Utility difference tại Day " + day + ": <b>" + (utilDiff >= 0 ? "+" : "") + utilDiff + "%</b> (Full so với No-Forecast)";
+    var diffHtml = "Chênh lệch hiệu quả tại Ngày " + day + ": <b>" + (utilDiff >= 0 ? "+" : "") + utilDiff + "%</b> (Đầy đủ so với Không dự báo)";
     if (!existing) {
       var div = document.createElement("div");
       div.id = "horizonDiffLine";
@@ -1390,17 +1390,17 @@
     try {
       var r = await api("/provenance");
       document.getElementById("backendDot").className = "dot on";
-      document.getElementById("backendLabel").textContent = "Backend OK";
+      document.getElementById("backendLabel").textContent = "Máy chủ đã sẵn sàng";
       var valEntry = r.dataset_checksums && r.dataset_checksums["val.parquet"];
-      var valSha = valEntry && valEntry.sha256 ? valEntry.sha256.slice(0, 16) + "..." : "Unavailable";
+      var valSha = valEntry && valEntry.sha256 ? valEntry.sha256.slice(0, 16) + "..." : "Không có sẵn";
       var engineSha = (r.bundle_engine_source && r.bundle_engine_source.files["policies.py"] &&
-        r.bundle_engine_source.files["policies.py"].sha256 || "Unavailable");
-      var devHead = (r.dev_repo && r.dev_repo.git_head) ? r.dev_repo.git_head.slice(0, 10) : "Unavailable";
+        r.bundle_engine_source.files["policies.py"].sha256 || "Không có sẵn");
+      var devHead = (r.dev_repo && r.dev_repo.git_head) ? r.dev_repo.git_head.slice(0, 10) : "Không có sẵn";
       var dirty = r.dev_repo && r.dev_repo.working_tree_dirty;
       document.getElementById("provenanceStrip").innerHTML =
-        "<span>Engine snapshot (policies.py SHA-256): <b>" + (engineSha === "Unavailable" ? engineSha : engineSha.slice(0, 16) + "...") + "</b></span>" +
-        "<span>Dataset val.parquet SHA-256: <b>" + valSha + "</b></span>" +
-        "<span>Dev repo HEAD (data source only): <b>" + devHead + (dirty ? " (working tree dirty)" : "") + "</b></span>";
+        "<span>Ảnh chụp engine (SHA-256 policies.py): <b>" + (engineSha === "Không có sẵn" ? engineSha : engineSha.slice(0, 16) + "...") + "</b></span>" +
+        "<span>SHA-256 bộ dữ liệu val.parquet: <b>" + valSha + "</b></span>" +
+        "<span>Dev repo HEAD (chỉ nguồn dữ liệu): <b>" + devHead + (dirty ? " (working tree có thay đổi chưa commit)" : "") + "</b></span>";
     } catch (e) {
       document.getElementById("backendDot").className = "dot off";
       document.getElementById("backendLabel").textContent = "Backend không phản hồi";

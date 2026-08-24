@@ -1,0 +1,100 @@
+{
+  "rule_1_temporal_boundary_hygiene": {
+    "definition": "exclude test.parquet rows whose pickup_ts epoch second equals val.parquet's max pickup_ts epoch second",
+    "boundary_epoch_second": 1374412620
+  },
+  "rule_2_duration_quality_repair": {
+    "definition": "if 0 < duration_seconds <= 24h keep as-is; elif 0 < (dropoff_ts-pickup_ts) <= 24h repair duration_seconds_eval from timestamps (quality_action=REPAIRED_FROM_TIMESTAMPS); else exclude (quality_action=EXCLUDED_INVALID_DURATION)",
+    "max_duration_seconds": 86400
+  },
+  "per_split": {
+    "train": {
+      "path": "D:\\ProjectVSF\\fairdispatch_v3_clean\\data\\train.parquet",
+      "original_rows": 912375,
+      "temporal_boundary_excluded": 0,
+      "duration_repaired": 0,
+      "duration_excluded": 0,
+      "final_evaluated_rows": 912375,
+      "excluded_row_ids": {
+        "temporal_boundary": [],
+        "duration_invalid": []
+      },
+      "repaired_row_ids": [],
+      "t0_epoch_seconds": 1356998410
+    },
+    "val": {
+      "path": "D:\\ProjectVSF\\fairdispatch_v3_clean\\data\\val.parquet",
+      "original_rows": 195508,
+      "temporal_boundary_excluded": 0,
+      "duration_repaired": 0,
+      "duration_excluded": 0,
+      "final_evaluated_rows": 195508,
+      "excluded_row_ids": {
+        "temporal_boundary": [],
+        "duration_invalid": []
+      },
+      "repaired_row_ids": [],
+      "t0_epoch_seconds": 1371135208
+    },
+    "test": {
+      "path": "D:\\ProjectVSF\\fairdispatch_v3_clean\\data\\test.parquet",
+      "original_rows": 195510,
+      "temporal_boundary_excluded": 3,
+      "duration_repaired": 32,
+      "duration_excluded": 1,
+      "final_evaluated_rows": 195506,
+      "excluded_row_ids": {
+        "temporal_boundary": [
+          0,
+          1,
+          2
+        ],
+        "duration_invalid": [
+          164421
+        ]
+      },
+      "repaired_row_ids": [
+        62084,
+        62586,
+        62829,
+        63006,
+        63065,
+        63157,
+        63604,
+        64012,
+        64111,
+        64310,
+        64499,
+        64643,
+        64665,
+        64747,
+        160643,
+        161076,
+        162749,
+        162964,
+        163027,
+        163267,
+        163899,
+        164498,
+        164716,
+        164799,
+        165058,
+        165886,
+        166153,
+        166209,
+        166248,
+        194055,
+        194111,
+        195429
+      ],
+      "t0_epoch_seconds": 1374412627
+    }
+  },
+  "final_evaluated_rows": {
+    "train": 912375,
+    "val": 195508,
+    "test": 195506
+  },
+  "raw_test_parquet_immutable": true,
+  "applied_at": "2026-08-21T11:53:57.920079"
+}

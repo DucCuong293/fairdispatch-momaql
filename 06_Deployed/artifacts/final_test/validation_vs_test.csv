@@ -1,0 +1,14 @@
+finding_id,finding,validation_value,test_value,validation_direction,test_direction,generalized,notes
+F1,MOMAQL Utility > Greedy,1422441 vs 1001551,1454053 vs 1073748,MOMAQL>Greedy,MOMAQL>Greedy,Yes,
+F2,MOMAQL Gini < Greedy,0.2037 vs 0.5307,0.2011 vs 0.5199,MOMAQL<Greedy,MOMAQL<Greedy,Yes,
+F3,MOMAQL Utility > Nearest,1422441 vs 789444,1454053 vs 854696,MOMAQL>Nearest,MOMAQL>Nearest,Yes,
+F4,MOMAQL Gini < Nearest,0.2037 vs 0.4298,0.2011 vs 0.4164,MOMAQL<Nearest,MOMAQL<Nearest,Yes,
+F5,LAF is fairness extreme (lowest Gini among baselines),LAF,LAF,LAF,LAF,Yes,
+F6,Full Utility > No Forecast,+22.4%,+17.1%,Full>NoForecast,Full>NoForecast,Yes,"paired mean delta val=260364 (5/5), test=212344 (5/5)"
+F7,No Forecast Gini < Full (fairer),-0.0580,-0.0427,NoForecast<Full,NoForecast<Full,Yes,"paired sign consistency val=5/5, test=5/5"
+F8,No Fairness Gini > Full (less equal),0.2466,0.2446,NoFairness>Full,NoFairness>Full,Yes,"paired sign consistency val=5/5, test=5/5"
+F9,No Fairness Utility direction vs Full,-524416,-518137,NoFairness<Full,NoFairness<Full,Yes,
+F10_day7,Full vs No Forecast Utility gain at Day 7,-0.0%,-0.0%,Full<=NoForecast,Full<=NoForecast,Yes,
+F10_day21,Full vs No Forecast Utility gain at Day 21,+5.1%,+1.2%,Full>NoForecast,Full>NoForecast,Yes,
+F10_day37,Full vs No Forecast Utility gain at Day 37,+20.2%,+13.4%,Full>NoForecast,Full>NoForecast,Yes,
+F11,Long-horizon Day 37 fairness: No Forecast Gini vs Full,full=0.217 nf=0.151,full=0.210 nf=0.173,NoForecast<Full,NoForecast<Full,Yes,

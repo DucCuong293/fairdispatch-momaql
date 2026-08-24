@@ -279,7 +279,7 @@ def test_scenario_filter_applied_before_request_limit():
 
 @needs_val_data
 def test_empty_scenario_raises_clear_error_not_crash():
-    with pytest.raises(ValueError, match="No requests match"):
+    with pytest.raises(ValueError, match="Không có yêu cầu"):
         engine_adapter.SimulationSession(
             run_id="test-empty-scenario", dataset="val", n_drivers=10, seed=1, policy_name="Greedy",
             lam=0.5, gamma=0.9, alpha=0.1, forecast_on=True, request_limit=50,

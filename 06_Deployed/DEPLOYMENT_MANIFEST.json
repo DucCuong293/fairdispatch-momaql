@@ -1,0 +1,129 @@
+{
+  "build_timestamp": "2026-08-24T09:45:00",
+  "last_refreshed": "2026-08-24T11:20:00",
+  "deploy_target": "Render Web Service (Docker)",
+  "source_repo": "D:\\ProjectVSF\\FairDispatch_MOMAQL_Fair_Ride_Hailing_Dispatch_Replication",
+  "05_SanPham_Demo_untouched": true,
+  "canonical_hashes_verified": {
+    "test.parquet": {
+      "path": "D:\\ProjectVSF\\fairdispatch_v3_clean\\data\\test.parquet",
+      "sha256": "96e7133fec5f55a8260b5e2fc26327405c51e67529e2a96662a003cd6c66bc72",
+      "size_bytes": 48188109,
+      "rows": 195510,
+      "matches_expected": true
+    },
+    "momaql_q_table_trained.json": {
+      "sha256": "9af13c33219f989e23a8ee9eca9e0cda3262996e34849bcc6dfab0cab5d64bdb",
+      "matches_expected": true
+    },
+    "src/policies.py": {
+      "sha256": "fe9e95883cbfa494748ac7a2fc115eda3bfe095ea4f05c7f0b2f368b0732f5ac",
+      "matches_expected": true
+    },
+    "src/simulator.py": {
+      "sha256": "b2dbf2e927d622f38d86039bdb8e5ea81b0984f405781c73527716078890368d",
+      "matches_expected": true
+    }
+  },
+  "bundled_files": {
+    "_note": "Recomputed from actual current file content after all code changes in this pass -- not carried over from any prior round.",
+    "backend/app.py": {"sha256": "7db2dc44142e0da532daeaf1246d6f9c0ebf5d448d9e383883ae50da3b6a4adb", "size_bytes": 13430},
+    "backend/engine_adapter.py": {"sha256": "4c841be5117f0c3a204e1886a7bde98be545f63ee11ac03c7f96a1bf5f7ae316", "size_bytes": 21435},
+    "backend/paths.py": {"sha256": "ffaff1c78d9a651fa4581eb755390d00911fc1f9e4dfd0c508ef0d2ce9141a8c", "size_bytes": 764},
+    "backend/replay_adapter.py": {"sha256": "8b27a561debfe8ba7cbedb377ef04685be81bc18d4aa812184a07daa51c64bce", "size_bytes": 4878},
+    "frontend/app.js": {"sha256": "888577a6273d52a3ed1d7b371b21098e2cbb897f91e340892f21a58ff43b14ac", "size_bytes": 73267},
+    "frontend/index.html": {"sha256": "136b4cb9a68c5d9ee42c762ed1f0f7366760d4ca96722f9ea1120eb6793b4b00", "size_bytes": 25041},
+    "frontend/styles.css": {"sha256": "45cf961020daf538823de65f1d5df597af4cee8dc49d90a1b244f3df19dc1a23", "size_bytes": 17286},
+    "engine/common_loader.py": {"sha256": "ad14ca5ba27ef3ba50d71673c0185fdc0ca3664aa90a5537656e72fc0984d4e3", "size_bytes": 2763},
+    "engine/src/policies.py": {"sha256": "fe9e95883cbfa494748ac7a2fc115eda3bfe095ea4f05c7f0b2f368b0732f5ac", "size_bytes": 12308, "unchanged_from_canonical": true},
+    "engine/src/simulator.py": {"sha256": "b2dbf2e927d622f38d86039bdb8e5ea81b0984f405781c73527716078890368d", "size_bytes": 13381, "unchanged_from_canonical": true},
+    "data/test_eval.parquet": {"sha256": "2984be13d2c13a07ce4ff29ada928595ecd8079848b55d18a522dedd68c91b08", "size_bytes": 6880346, "rows": 195506},
+    "data/momaql_q_table_trained.json": {"sha256": "9af13c33219f989e23a8ee9eca9e0cda3262996e34849bcc6dfab0cab5d64bdb", "size_bytes": 47419, "unchanged_from_canonical": true}
+  },
+  "dataset": {
+    "runtime_view": "Final Test Evaluation View",
+    "raw_rows": 195510,
+    "temporal_boundary_excluded": 3,
+    "duration_repaired": 32,
+    "duration_excluded": 1,
+    "final_evaluated_rows": 195506,
+    "boundary_epoch_second": 1374412620
+  },
+  "engine_hashes": {
+    "policies.py": "fe9e95883cbfa494748ac7a2fc115eda3bfe095ea4f05c7f0b2f368b0732f5ac",
+    "simulator.py": "b2dbf2e927d622f38d86039bdb8e5ea81b0984f405781c73527716078890368d"
+  },
+  "q_table_hash": "9af13c33219f989e23a8ee9eca9e0cda3262996e34849bcc6dfab0cab5d64bdb",
+  "test_status": {
+    "pytest": "38 passed, 0 failed",
+    "suite": "06_Deployed/tests/test_deploy_bundle.py",
+    "note": "current, as of last_refreshed above -- see history in hardening_pass/consistency_fix_pass for prior counts (28, then 37)"
+  },
+  "docker": {
+    "build": "PASS",
+    "image_size_mb": 717,
+    "smoke_test": "PASS",
+    "idle_memory_mib": 116.9,
+    "after_10_steps_mib": 121.4,
+    "note": "current measured values, as of last_refreshed above -- see history in hardening_pass/consistency_fix_pass for prior readings"
+  },
+  "render_free_suitability": "RECOMMENDED",
+  "deployment_readiness": "READY (manual GitHub push + Render dashboard steps remain -- see README_DEPLOY_RENDER.md)",
+  "hardening_pass": {
+    "_label": "HISTORICAL -- first hardening pass. Test count (37) and memory readings below are as measured AT THAT TIME, superseded by top-level test_status/docker above.",
+    "health_check": {
+      "healthy_http_status": 200,
+      "degraded_http_status": 503,
+      "previously_always_returned": 200
+    },
+    "public_demo_limits": {
+      "live_simulation": {"request_limit_max": 10000, "n_drivers_max": 400},
+      "compare_live": {"request_limit_max": 3000, "n_drivers_max": 400},
+      "violation_http_status": 400,
+      "dataset_rows_unaffected": 195506
+    },
+    "session_bounding": {
+      "max_sessions": 20,
+      "eviction_policy": "oldest_first_fifo",
+      "history_display_cap_unchanged": 100
+    },
+    "tests": {"pytest": "37 passed, 0 failed", "new_tests_added": 9},
+    "docker": {
+      "build": "PASS",
+      "run": "PASS",
+      "idle_memory_mib": 121.7,
+      "after_10_steps_mib": 126,
+      "memory_delta_vs_prior_pass_mib": 1.3
+    },
+    "05_SanPham_Demo_integrity": "PASS, 0 diffs (checked before and after this pass)",
+    "canonical_engine_hashes_unchanged": true,
+    "final_test_artifacts_unchanged": true,
+    "gitignore_added": true,
+    "pycache_and_pytest_cache_removed": true
+  },
+  "consistency_fix_pass": {
+    "_label": "Final audit found 3 issues: HISTORY list unbounded in practice (only the read-time slice was capped), and DEPLOYMENT_MANIFEST.json bundled_files hashes stale (backend/app.py, frontend/index.html had drifted from the hardening-pass edits and were never recomputed). Fixed below.",
+    "history_bound_fix": {
+      "before": "HISTORY.insert(0, ...) with no truncation -- list grew unbounded even though GET /simulations only ever returned HISTORY[:100]",
+      "after": "del HISTORY[MAX_HISTORY:] enforced immediately after every insert",
+      "new_test": "test_history_actually_bounded_to_100 -- creates 105 sessions, asserts len(HISTORY) == 100"
+    },
+    "manifest_hash_verification": {
+      "discrepancies_found_before_fix": 2,
+      "files": ["backend/app.py", "frontend/index.html"],
+      "reason": "manifest had not been recomputed after the hardening-pass edits to those two files",
+      "discrepancies_after_full_recompute": 0,
+      "method": "SHA-256 of every file in bundled_files recomputed from actual current content, compared against the values written into this manifest -- all 12 match"
+    },
+    "tests": {"pytest": "38 passed, 0 failed", "new_tests_added_this_pass": 1},
+    "docker": {
+      "build": "PASS", "run": "PASS",
+      "idle_memory_mib": 116.9, "after_10_steps_mib": 121.4
+    },
+    "SESSIONS_cap": 20,
+    "HISTORY_cap": 100,
+    "05_SanPham_Demo_integrity": "PASS, 0 diffs (checked before and after this pass)",
+    "canonical_engine_hashes_unchanged": true,
+    "final_test_artifacts_unchanged": true
+  }
+}

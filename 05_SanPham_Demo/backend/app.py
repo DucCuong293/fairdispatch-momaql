@@ -17,7 +17,7 @@ from pydantic import BaseModel
 import engine_adapter
 import replay_adapter
 
-app = FastAPI(title="FairDispatch -- Decision-Support Prototype")
+app = FastAPI(title="FairDispatch -- Trợ lý ra quyết định điều phối")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 SESSIONS: dict[str, engine_adapter.SimulationSession] = {}
@@ -68,7 +68,7 @@ def _build_session_or_400(run_id: str, body) -> engine_adapter.SimulationSession
     except FileNotFoundError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=400, detail=f"Cau hinh khong hop le: {e}") from e
+        raise HTTPException(status_code=400, detail=f"Cấu hình không hợp lệ: {e}") from e
 
 
 def _record_from_session(s: engine_adapter.SimulationSession, status: str) -> dict:
@@ -92,9 +92,9 @@ def create_simulation(body: CreateSimRequest):
     HISTORY.insert(0, _record_from_session(session, "created"))
     note = None
     if session.n_drivers_actual != session.n_drivers_requested:
-        note = (f"Yeu cau {session.n_drivers_requested} driver nhung dataset/slice hien tai chi du "
-                f"request de khoi tao {session.n_drivers_actual} driver thuc te (init_drivers() seed "
-                f"tu request dau tien, gioi han boi request_limit).")
+        note = (f"Yêu cầu {session.n_drivers_requested} tài xế nhưng dataset/slice hiện tại chỉ đủ "
+                f"request để khởi tạo {session.n_drivers_actual} tài xế thực tế (init_drivers() seed "
+                f"từ request đầu tiên, giới hạn bởi request_limit).")
     return {
         "run_id": run_id, "total_requests": session.n, "config": HISTORY[0], "note": note,
         "constants": {
@@ -108,7 +108,7 @@ def create_simulation(body: CreateSimRequest):
 def _get_session(run_id: str) -> engine_adapter.SimulationSession:
     s = SESSIONS.get(run_id)
     if s is None:
-        raise HTTPException(status_code=404, detail=f"Run {run_id} khong ton tai (co the server da restart).")
+        raise HTTPException(status_code=404, detail=f"Run {run_id} không tồn tại (có thể server đã restart).")
     return s
 
 
@@ -170,8 +170,8 @@ def explain_assignment(run_id: str, req_idx: int, batch: int | None = None):
     s = _get_session(run_id)
     result = s.explain(req_idx, batch=batch)
     if result is None:
-        detail = ("Request nay khong nam trong batch vua chay gan nhat." if batch is None
-                   else f"Request nay khong nam trong batch #{batch} (co the da bi loai khoi lich su gan day).")
+        detail = ("Yêu cầu này không nằm trong đợt vừa chạy gần nhất." if batch is None
+                   else f"Yêu cầu này không nằm trong đợt #{batch} (có thể đã bị loại khỏi lịch sử gần đây).")
         raise HTTPException(status_code=404, detail=detail)
     return result
 
@@ -188,8 +188,8 @@ class CompareLiveRequest(BaseModel):
 
 @app.post("/compare/live")
 def compare_live(body: CompareLiveRequest):
-    """Illustrative quick-compare on a small live slice -- NOT a substitute
-    for the verified 195,508-request x 5-seed result at /replay/ablation."""
+    """So sánh nhanh minh họa trên một lát dữ liệu trực tiếp nhỏ -- KHÔNG thay thế
+    kết quả kiểm chứng 195.508 yêu cầu x 5 seed tại /replay/ablation."""
     out = {}
     for label, forecast_on in (("full", True), ("no_forecast", False)):
         run_id = f"cmp-{label}-{uuid.uuid4().hex[:6]}"
@@ -209,8 +209,8 @@ def compare_live(body: CompareLiveRequest):
             "n_drivers_actual": sess.n_drivers_actual,
         }
     return {
-        "note": "Live quick compare tren slice nho (minh hoa) -- khong thay the ket qua verified "
-                "5-seed day du o /replay/ablation.",
+        "note": "So sánh nhanh trực tiếp trên lát dữ liệu nhỏ (minh họa) -- không thay thế kết quả "
+                "kiểm chứng 5 seed đầy đủ ở /replay/ablation.",
         "results": out,
     }
 
@@ -224,7 +224,7 @@ def replay_presets():
 def replay_data(preset: str):
     fn = replay_adapter.PRESETS.get(preset)
     if fn is None:
-        raise HTTPException(status_code=404, detail=f"Preset '{preset}' khong ton tai. Co: {list(replay_adapter.PRESETS)}")
+        raise HTTPException(status_code=404, detail=f"Preset '{preset}' không tồn tại. Có: {list(replay_adapter.PRESETS)}")
     return fn()
 
 

@@ -34,15 +34,16 @@ việc thật (một backend Python phục vụ vài chục request/giây cho m�
 
 ## Hai nguồn dữ liệu thật (không hard-code)
 
-- **Live Simulation**: đọc trực tiếp `fairdispatch_v3_clean/data/val.parquet` (195,508 request
-  NYC TLC thật) qua `pyarrow`, giới hạn theo `request_limit` để Step phản hồi tức thì trong
+- **Mô phỏng trực tiếp** (tab "Mô phỏng trực tiếp"): đọc trực tiếp
+  `fairdispatch_v3_clean/data/val.parquet` (195,508 request
+  NYC TLC thật) qua `pyarrow`, giới hạn theo `request_limit` để Bước phản hồi tức thì trong
   demo. File parquet **không** được copy vào gói nộp vì quá lớn (48–225MB/file) — backend đọc
   từ repo dev cạnh gói nộp. Nếu repo dev ở vị trí khác, đặt biến môi trường
   `FAIRDISPATCH_DEV_REPO`.
-- **Replay Mode** (`Compare Policies`, `Long-Horizon`): đọc trực tiếp
+- **Replay Mode** (tab "So sánh chiến lược", "Đánh giá dài hạn"): đọc trực tiếp
   `03_Source_Code_Va_Ket_Qua/reports/*.csv` — đúng các file đã dùng để build Research Report và
   slide thuyết trình (5 seed, 195,508 request/seed cho main comparison; 37-ngày cho
-  long-horizon). UI luôn gắn badge "Verified Experiment" + ghi rõ tên file nguồn.
+  long-horizon). UI luôn gắn badge "Kết quả kiểm chứng" + ghi rõ tên file nguồn.
 
 ## Cài đặt & chạy
 
@@ -55,17 +56,17 @@ python -m uvicorn app:app --host 127.0.0.1 --port 8731
 Mở trình duyệt: **http://127.0.0.1:8731/** (FastAPI tự phục vụ luôn thư mục `frontend/`, không
 cần chạy 2 server riêng).
 
-## Live Simulation Mode vs Research Replay Mode
+## Mô phỏng trực tiếp vs Research Replay
 
-| | Live Simulation | Research Replay |
+| | Mô phỏng trực tiếp | Research Replay |
 |---|---|---|
 | Dữ liệu | Slice nhỏ thật từ `val.parquet` (mặc định 3,000 request đầu) | Toàn bộ 195,508 request × 5 seed, đã verify |
-| Tốc độ | Step tức thì, Run tự động lặp Step | Đọc CSV, tức thì |
+| Tốc độ | Bước tức thì, Chạy tự động lặp Bước | Đọc CSV, tức thì |
 | Mục đích | Xem engine ra quyết định từng batch, click assignment để giải thích | Xem kết quả nghiên cứu đã verify, đáng tin cậy thống kê |
-| Nhãn UI | — | Badge "Verified Experiment" (xanh) khi đọc replay, "Minh hoạ" (vàng) khi live quick-compare |
+| Nhãn UI | — | Badge "Kết quả kiểm chứng" (xanh) khi đọc replay, "Minh hoạ" (vàng) khi live quick-compare |
 
-**Không dùng slice live nhỏ để thay thế kết luận nghiên cứu.** Tab Compare Policies mặc định
-show kết quả Replay thật (5 seed đầy đủ); nút "Live Quick Compare" là minh hoạ bổ sung, có ghi
+**Không dùng slice live nhỏ để thay thế kết luận nghiên cứu.** Tab "So sánh chiến lược" mặc định
+show kết quả Replay thật (5 seed đầy đủ); nút "Chạy so sánh nhanh trực tiếp" là minh hoạ bổ sung, có ghi
 chú rõ không đại diện thống kê.
 
 ## Policy hỗ trợ
@@ -84,7 +85,7 @@ chú rõ không đại diện thống kê.
 1. **Map driver + request + assignment thật** — Leaflet 1.9.4 (CDN unpkg) + basemap CARTO
    light, marker/route vẽ theo lat/lon NYC thật (không có zone geometry trong repo nên không
    vẽ polygon zone, dùng tọa độ thật thay vì zone trung tâm giả định). Layout/interaction
-   (topbar, legend, tracker panel "Why this driver?", log table) port từ
+   (topbar, legend, tracker panel "Vì sao chọn tài xế này?", log table) port từ
    `demo_fairdispatch/` (visual only — data/logic 100% từ engine hiện tại, xem
    `PRODUCT_FRONTEND_PORT_PLAN.md`). Driver marker chạy trên **một global continuous simulation
    clock** (không phải animation theo-batch): trip từ nhiều batch 60-giây thật của engine có
@@ -97,16 +98,16 @@ chú rõ không đại diện thống kê.
    toggle, Search Driver/Request — tham số nghiên cứu (λ/γ/α/seed) chuyển vào Advanced/Research
    collapsible. Round 6 (`OPERATOR_SCENARIO_CONTROLS_PLAN.md`) thêm Scenario controls: Time-of-
    day filter (Sáng/Chiều/Đêm/Tùy chỉnh, hỗ trợ qua đêm), Day filter (ngày thường/cuối tuần/tùy
-   chỉnh, weekday tính thật từ timestamp), Fleet/Horizon preset buttons, Save Run
-   (localStorage), scenario summary + badge "SCENARIO FILTER ACTIVE"; toàn bộ 8 section
+   chỉnh, weekday tính thật từ timestamp), Fleet/Horizon preset buttons, Lưu lần chạy
+   (localStorage), scenario summary + badge "BỘ LỌC KỊCH BẢN ĐANG BẬT"; toàn bộ 8 section
    rightpanel giờ collapsible (`<details>` native).
 2. **Run / Step / Reset** — Step là một lệnh API đồng bộ thật (advance đúng 1 window 60 giây
    qua `feasible_drivers`/`commit_trip`/`policy.select_batch` thật); Run = tự động gọi lại
    Step (Pause dừng ngay vì mỗi step độc lập, không animation giả).
 3. **Utility + Gini** — tính lại mỗi step bằng đúng công thức `gini()`/`variance()` từ
    `common_loader.py`, trên state driver thật.
-4. **Compare Full vs No-Forecast** — mặc định đọc replay thật (`r2_ablation_results.csv`);
-   có thêm Live Quick Compare minh hoạ.
+4. **So sánh Đầy đủ vs Không dự báo** — mặc định đọc replay thật (`r2_ablation_results.csv`);
+   có thêm So sánh nhanh trực tiếp minh hoạ.
 5. **Click assignment → giải thích** — winner đánh dấu bằng `selected_driver_id` thật lấy từ
    kết quả Hungarian (`step()` lưu lại, KHÔNG suy ra từ candidate điểm cao nhất — Hungarian tối
    ưu cả batch nên driver được chọn có thể không phải local rank #1; UI hiện rõ local rank khi
@@ -118,8 +119,8 @@ chú rõ không đại diện thống kê.
 đang chạy, tách biệt rõ với Git HEAD của repo dev), Run History (in-memory), Driver income
 histogram + Lorenz curve (tính thật từ income driver mỗi step), map phân biệt driver
 idle/busy, assigned/declined/infeasible, deadhead (nét đứt) vs trip khách (nét liền),
-Long-Horizon Timeline (Replay, 11 checkpoint ngày 1→37), λ slider context-aware (tự disable
-khi policy ≠ MOMAQL), badge rõ **LIVE ENGINE** vs **VERIFIED REPLAY**.
+Dòng thời gian đánh giá dài hạn (Replay, 11 checkpoint ngày 1→37), λ slider context-aware (tự disable
+khi policy ≠ MOMAQL), badge rõ **ENGINE TRỰC TIẾP** vs **KẾT QUẢ KIỂM CHỨNG**.
 
 **Chủ động không làm** (đúng khuyến nghị "không cần" của spec): Login/Register, CSV export,
 MLP live toggle (không có model file để serve — chỉ có kết quả CSV, xem
