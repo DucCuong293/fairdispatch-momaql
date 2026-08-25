@@ -1,0 +1,844 @@
+Bản slide hiện tại đã tốt hơn, nhưng còn một thiếu sót quan trọng về DATA.
+
+Hiện người xem thấy:
+- ~1,3 triệu chuyến;
+- 67 vùng;
+- Train / Validation / Test;
+- simulator 60 giây;
+
+nhưng chưa thực sự hiểu:
+
+1. Bộ dữ liệu NYC Taxi này là dữ liệu gì?
+2. Một record/chuyến có những thông tin nào được FairDispatch sử dụng?
+3. Dữ liệu gốc được tiền xử lý như thế nào?
+4. Từ dữ liệu taxi thật, làm thế nào biến thành request cho simulator?
+5. Vì sao Q(zone, hour) lại hợp lý với cấu trúc dữ liệu này?
+
+Đây là phần Technical Skills rất quan trọng.
+
+GIỮ NGUYÊN ĐÚNG 24 SLIDE.
+Không thêm slide.
+Không xoá slide.
+
+Hãy cải thiện phần DATA bằng cách chỉnh chủ yếu SLIDE 7 và SLIDE 12.
+
+==================================================
+1. BẮT BUỘC AUDIT PREPROCESSING THẬT TRƯỚC
+==================================================
+
+KHÔNG được tự suy đoán preprocessing.
+
+Hãy tìm trong project tất cả code / docs liên quan tới:
+
+- raw NYC TLC data;
+- prepare_data;
+- preprocess;
+- cleaning;
+- train.parquet;
+- val.parquet;
+- test.parquet;
+- pickup/dropoff;
+- zone mapping;
+- timestamp;
+- duration;
+- fare;
+- distance;
+- temporal split.
+
+Search toàn project, đặc biệt:
+
+03_Source_Code_Va_Ket_Qua/
+src/
+scripts/
+data/
+reports/
+01_Tai_Lieu_Ky_Thuat/
+02_Bao_Cao_Du_An/
+
+Tìm chính xác:
+
+A. Raw input ban đầu là file/dataset gì?
+B. Các cột raw nào được dùng?
+C. Các row nào bị loại?
+D. Có filter fare/duration/distance hay không?
+E. Pickup/dropoff được ánh xạ sang zone như thế nào?
+F. 67 zone đến từ đâu?
+G. duration_seconds được tạo như thế nào?
+H. pickup hour / destination hour được tạo như thế nào?
+I. Data được sort theo trường thời gian nào?
+J. Train/Val/Test được split chính xác như thế nào?
+K. Có feature nào được derive thêm?
+L. Final processed schema thực tế là gì?
+
+Không đưa lên slide một preprocessing step nếu không tìm thấy evidence trong code/doc.
+
+==================================================
+2. TẠO DATA PIPELINE AUDIT
+==================================================
+
+Create:
+
+04_Slide_Thuyet_Trinh/DATA_PIPELINE_AUDIT.md
+
+Ghi:
+
+Raw source
+↓
+Raw columns actually used
+↓
+Cleaning/filter rules
+↓
+Derived columns
+↓
+Spatial mapping
+↓
+Temporal ordering
+↓
+Train / Validation / Test
+↓
+Final schema consumed by simulator
+
+Với mỗi step phải ghi source file/function.
+
+Ví dụ:
+
+Step:
+Map pickup/dropoff to taxi zone
+
+Source:
+scripts/...py
+function: ...
+
+Nhưng phải lấy từ code thật.
+
+==================================================
+3. TÍNH THÊM DATASET PROFILE TỪ DỮ LIỆU THẬT
+==================================================
+
+Được phép viết READ-ONLY script để profile dữ liệu.
+
+Không thay đổi parquet.
+Không ghi đè dataset.
+Không rerun policy experiment.
+
+Create nếu cần:
+
+04_Slide_Thuyet_Trinh/scripts/profile_dataset.py
+
+Tính những thông tin sau nếu dữ liệu hỗ trợ:
+
+- tổng số trips;
+- date range;
+- số zone;
+- số pickup zones thực sự xuất hiện;
+- số dropoff zones thực sự xuất hiện;
+- số chuyến/ngày;
+- median chuyến/ngày;
+- phân bố số chuyến theo giờ trong ngày;
+- top pickup zones;
+- top dropoff zones;
+- median fare;
+- median trip duration;
+- median trip distance;
+
+NHƯNG không đưa hết lên slide.
+
+Chỉ chọn những thông tin giúp người nghe hiểu dataset.
+
+==================================================
+4. SLIDE 7 — SỬA KIẾN TRÚC DATA PIPELINE
+==================================================
+
+Current slide:
+
+“Từ dữ liệu chuyến xe đến bản đồ mô phỏng”
+
+Giữ title hoặc sửa nhẹ thành:
+
+“Từ dữ liệu NYC Taxi đến quyết định điều phối”
+
+Phần đầu pipeline hiện đang quá chung chung.
+
+Không chỉ viết:
+
+NYC Taxi
+→ Xử lý vùng, thời gian, khoảng cách
+→ Simulator
+
+Hãy làm rõ data preparation.
+
+Target visual:
+
+NYC TLC 2013
+      ↓
+[Tiền xử lý thật theo source]
+      ↓
+Chuẩn hóa request
+      ↓
+Ánh xạ không gian → 67 taxi zones
+      ↓
+Sắp xếp theo thời gian
+      ↓
+Train / Validation / Test
+      ↓
+Bộ mô phỏng
+      ↓
+5 chiến lược điều phối
+      ↓
+Hungarian Assignment
+      ↓
+Utility / Fairness
+      ↓
+Demo
+
+Không làm pipeline quá dài theo chiều dọc.
+
+Có thể group:
+
+┌ DATA ┐
+Raw → Clean → Zone/Time → Split
+                          ↓
+┌ DISPATCH ENGINE ┐
+Simulator → Policy → Matching
+                          ↓
+┌ OUTPUT ┐
+Metrics → Demo
+
+Quan trọng:
+Tên preprocessing step phải khớp code thật.
+
+==================================================
+5. SLIDE 12 — ĐỔI TRỌNG TÂM THÀNH
+“BỘ DỮ LIỆU NYC TAXI 2013 VÀ CÁCH TIỀN XỬ LÝ”
+==================================================
+
+Current slide 12 đang chủ yếu nói Train / Validation / Test.
+
+Điều đó chưa đủ.
+
+Hãy redesign slide 12 thành 3 khu vực.
+
+--------------------------------------------------
+A. DATASET PROFILE
+--------------------------------------------------
+
+Show:
+
+NYC TLC 2013
+
+1.303.393
+chuyến sau khi tạo ba tập hiện dùng
+
+01/01/2013 → 31/08/2013
+
+67
+taxi zones
+
+Nếu data/code xác nhận thêm:
+- loại taxi/source cụ thể;
+- số ngày;
+- số zone thực sự xuất hiện;
+
+thì bổ sung.
+
+Không invent.
+
+--------------------------------------------------
+B. MỘT CHUYẾN XE ĐƯỢC BIỂU DIỄN RA SAO?
+--------------------------------------------------
+
+Dựa trên processed schema THẬT.
+
+Ví dụ visual concept:
+
+Một chuyến
+
+Pickup time
+Pickup zone
+        ↓
+Dropoff zone
+Trip duration
+Fare
+...
+
+Nhưng phải đọc parquet/code rồi dùng đúng field thật.
+
+Không ghi field không tồn tại.
+
+Mục tiêu là người nghe hiểu:
+
+“Simulator không nhận một file CSV mơ hồ.
+Mỗi row được biến thành một request có thời gian, điểm đón,
+điểm trả và thông tin chuyến cần cho thuật toán.”
+
+--------------------------------------------------
+C. PREPROCESSING FLOW
+--------------------------------------------------
+
+Show khoảng 4–6 bước tối đa.
+
+Ví dụ HÌNH THỨC:
+
+Raw NYC trip
+→ kiểm tra dữ liệu
+→ chuẩn hóa timestamp/duration
+→ map pickup/dropoff vào zone
+→ sắp xếp theo pickup time
+→ temporal split
+
+NHƯNG nội dung step phải lấy từ implementation thật.
+
+Không copy nguyên ví dụ nếu code không làm như vậy.
+
+==================================================
+6. GIỮ TRAIN / VALIDATION / TEST NHƯNG THU NHỎ
+==================================================
+
+Vẫn phải giữ:
+
+Train:
+912.375
+
+Validation:
+195.508
+
+Test:
+195.510
+
+Date range:
+
+Train:
+01/01 → 13/06
+
+Validation:
+13/06 → 21/07
+
+Test:
+21/07 → 31/08
+
+Nếu source mới nhất xác nhận đúng.
+
+Không cần để phần này chiếm cả slide nữa.
+
+Có thể làm một temporal bar nhỏ ở đáy slide.
+
+==================================================
+7. THÊM 1 DATA CHART THẬT
+==================================================
+
+Tôi muốn cân nhắc thêm đúng MỘT chart dataset.
+
+Ưu tiên:
+
+“Số chuyến theo giờ trong ngày”
+
+X-axis:
+0 → 23 giờ
+
+Y-axis:
+số chuyến / tỷ trọng chuyến
+
+Data:
+đọc trực tiếp từ processed dataset.
+
+Chart phải trả lời một insight:
+
+“Demand thay đổi rõ theo thời gian trong ngày,
+vì vậy trạng thái zone + hour của FairDispatch có ý nghĩa.”
+
+Nếu chart theo giờ không cho insight rõ:
+hãy cân nhắc:
+
+- số chuyến theo ngày;
+hoặc
+- top pickup zones.
+
+Chỉ chọn 1.
+
+Không chọn chart chỉ vì nhìn đẹp.
+
+==================================================
+8. NẾU SLIDE 12 QUÁ CHẬT
+==================================================
+
+Không thêm slide.
+
+Ưu tiên theo thứ tự:
+
+1. Dataset là gì.
+2. Một record gồm gì.
+3. Preprocessing.
+4. Train/Val/Test.
+5. Data chart.
+
+Nếu chart làm slide quá chật:
+chuyển chart nhỏ sang Slide 7 hoặc không dùng.
+
+Không làm chữ nhỏ chỉ để nhồi tất cả.
+
+==================================================
+9. DATA QUALITY TEST — KHÔNG CẦN LÀM THÀNH TRỌNG TÂM
+==================================================
+
+Không cần quay lại một slide riêng về “unlock Test”.
+
+Nhưng nếu hợp layout có thể ghi một dòng nhỏ:
+
+Final Test evaluation:
+195.510 raw
+→ 195.506 evaluated
+
+Chi tiết:
+32 duration repaired from timestamps
+1 invalid zero trip excluded
+3 temporal-boundary rows excluded
+
+Chỉ dùng nếu không làm slide rối.
+
+Nếu không:
+để trong speaker notes.
+
+==================================================
+10. CẬP NHẬT SPEAKER NOTES
+==================================================
+
+Slide 12 speaker note phải giúp tôi nói khoảng 40–60 giây:
+
+Ý cần nói:
+
+“Bộ dữ liệu em dùng là NYC TLC 2013,
+gồm hơn 1,3 triệu chuyến từ tháng 1 tới cuối tháng 8.
+
+Mỗi chuyến không được đưa thẳng vào thuật toán.
+Em phải chuẩn hóa nó thành một request mà simulator hiểu được:
+thời điểm xuất phát, khu vực đón, khu vực trả,
+thời lượng/fare và các trường cần thiết khác.
+
+Sau tiền xử lý, dữ liệu được sắp theo thời gian và chia liên tục
+thành Train, Validation và Test chứ không random.
+
+Train dùng để học giá trị khu vực,
+Validation dùng để phát triển và đánh giá,
+Test để kiểm tra cuối.”
+
+Sau đó speaker note phải mô tả đúng các cleaning/feature step
+thực sự tìm thấy trong code.
+
+==================================================
+11. RÀ SOÁT THUẬT NGỮ
+==================================================
+
+Không viết:
+
+preprocessing
+
+một mình.
+
+Viết:
+
+tiền xử lý dữ liệu (preprocessing)
+
+Không viết:
+
+temporal split
+
+một mình.
+
+Viết:
+
+chia dữ liệu theo thời gian (temporal split)
+
+Không viết:
+
+zone mapping
+
+một mình.
+
+Viết:
+
+ánh xạ vị trí sang vùng taxi (zone mapping)
+
+Slide vẫn ưu tiên tiếng Việt.
+
+==================================================
+12. KHÔNG ĐƯỢC INVENT
+==================================================
+
+Đặc biệt không tự viết các filter kiểu:
+
+fare > 0
+distance > 0
+duration < X
+remove outlier
+drop duplicates
+missing values
+
+nếu code không thực sự làm.
+
+Hãy đọc preprocessing source.
+
+Nếu project không lưu raw preprocessing code đầy đủ:
+ghi đúng:
+
+“Processed dataset was provided/prepared upstream;
+current repository verifies the processed schema but does not
+fully preserve every raw cleaning step.”
+
+Không được tự bổ sung một pipeline đẹp nhưng không có bằng chứng.
+
+==================================================
+13. FINAL QA
+==================================================
+
+Sau khi sửa phải trả lời được 6 câu chỉ bằng slide:
+
+1. Dữ liệu đến từ đâu?
+2. Dữ liệu thuộc khoảng thời gian nào?
+3. Có bao nhiêu chuyến?
+4. Một chuyến gồm những thông tin quan trọng gì?
+5. Dữ liệu được tiền xử lý như thế nào?
+6. Dữ liệu sau đó đi vào simulator ra sao?
+
+Nếu chưa trả lời được đủ 6 câu:
+slide data vẫn chưa đạt.
+
+Slide count phải giữ:
+24.
+
+Không tạo appendix.
+Không thêm slide.
+Không dùng ảnh AI.
+
+Khi hoàn thành report:
+
+DATA SOURCE:
+...
+
+RAW/PROCESSED SCHEMA:
+...
+
+PREPROCESSING STEPS VERIFIED:
+1. ...
+2. ...
+3. ...
+
+NEW DATASET PROFILE METRICS:
+...
+
+DATA CHART:
+...
+
+SLIDES MODIFIED:
+7, 12
+
+SOURCE FILES USED:
+...
+
+SLIDE COUNT:
+24
+
+==================================================
+BỔ SUNG — TRỰC QUAN HÓA BỘ DỮ LIỆU
+==================================================
+
+Tôi muốn phần dữ liệu không chỉ có text và số Train / Validation / Test.
+
+Đây là project sử dụng hơn 1,3 triệu chuyến taxi thực tế, vì vậy người xem cần “nhìn thấy” đặc điểm của dữ liệu.
+
+Hãy chủ động profile dataset và tạo thêm một số chart từ DỮ LIỆU THẬT.
+
+Không thêm slide.
+Vẫn giữ đúng 24 slide.
+
+Ưu tiên tích hợp visual vào Slide 7 và Slide 12.
+Nếu một insight liên quan trực tiếp tới slide khác thì có thể đặt ở slide đó.
+
+Mọi chart phải được tạo từ parquet / CSV / JSON thật trong project.
+
+KHÔNG AI-generated image.
+KHÔNG số liệu minh họa giả.
+KHÔNG dữ liệu random.
+
+==================================================
+1. CHART ƯU TIÊN CAO NHẤT — NHU CẦU THEO GIỜ
+==================================================
+
+Tính số chuyến theo giờ pickup:
+
+0 → 23 giờ.
+
+Tạo line chart hoặc bar chart:
+
+X:
+Giờ trong ngày
+
+Y:
+Số chuyến hoặc tỷ trọng chuyến
+
+Mục đích:
+
+Cho người nghe thấy nhu cầu taxi thay đổi theo thời gian thực sự.
+
+Đây là evidence trực tiếp giải thích tại sao hệ thống sử dụng:
+
+Zone + Hour
+
+để biểu diễn giá trị tương lai.
+
+Nếu pattern có giờ cao điểm rõ:
+highlight trực tiếp các peak.
+
+Không tự gắn nhãn “rush hour” nếu dữ liệu không cho thấy rõ.
+
+Chart có thể đặt ở Slide 12.
+
+==================================================
+2. CHART — PHÂN BỐ NHU CẦU THEO KHU VỰC
+==================================================
+
+Nếu processed dataset có pickup_zone:
+
+Tính:
+- số trips theo pickup zone;
+- top 10 pickup zones;
+- tỷ trọng demand của top zones.
+
+Có thể tạo horizontal bar:
+
+Top 10 vùng có nhiều chuyến nhất
+
+X:
+Số chuyến
+
+Y:
+Taxi zone
+
+Insight cần kiểm tra:
+
+Demand có tập trung vào một số vùng hay phân bố tương đối đều?
+
+Nếu demand tập trung rõ:
+chart này rất có giá trị vì giải thích tại sao vị trí tương lai của driver quan trọng.
+
+Không đưa zone ID vô nghĩa nếu project có zone name.
+
+Nếu chỉ có numeric zone ID:
+có thể dùng “Zone 12”, “Zone 34”...
+nhưng speaker note phải giải thích đây là taxi-zone ID.
+
+==================================================
+3. CÂN NHẮC — HEATMAP ZONE × HOUR
+==================================================
+
+Nếu dữ liệu đủ tốt và chart vẫn đọc được:
+
+Tạo heatmap:
+
+X:
+0–23 giờ
+
+Y:
+Taxi zone hoặc top 10–15 zones
+
+Cell:
+số pickup requests
+
+Đây có thể là visual rất mạnh vì trực tiếp thể hiện:
+
+“Nhu cầu không chỉ thay đổi theo thời gian,
+mà còn thay đổi theo cả khu vực và thời gian.”
+
+Điều này giải thích trực tiếp cấu trúc:
+
+Q(zone, hour)
+
+của FairDispatch.
+
+CHỈ sử dụng heatmap nếu:
+- label đọc được;
+- không quá 15 zones;
+- pattern nhìn thấy rõ.
+
+Nếu quá rối:
+không dùng.
+
+Ưu tiên chart đơn giản hơn.
+
+==================================================
+4. CHART — PHÂN BỐ GIÁ CHUYẾN
+==================================================
+
+Nếu `fare_amount` tồn tại:
+
+Profile:
+- median;
+- P25;
+- P75;
+- P90;
+- P95;
+- max hợp lệ.
+
+Có thể tạo histogram hoặc box-style summary.
+
+Mục đích:
+
+Cho người xem hiểu quy mô giá trị một trip mà thuật toán đang tối ưu.
+
+Không nhất thiết đưa chart này nếu fare distribution không tạo insight quan trọng.
+
+Có thể chỉ dùng KPI:
+
+Median fare
+P90 fare
+
+Nếu slide chật.
+
+==================================================
+5. CHART — THỜI LƯỢNG CHUYẾN
+==================================================
+
+Nếu `duration_seconds` là field thật:
+
+Tính:
+- median trip duration;
+- P90;
+- P95.
+
+Có thể dùng histogram nếu distribution đáng chú ý.
+
+Insight:
+
+Sau khi nhận trip, driver bị bận trong bao lâu?
+Điều này ảnh hưởng trực tiếp tới simulator vì:
+
+available_at =
+pickup ETA + trip duration
+
+Nếu duration chart không giúp câu chuyện:
+chỉ giữ median/P90 dạng KPI.
+
+==================================================
+6. DATA PIPELINE ATTRITION — CHỈ NẾU CÓ SOURCE
+==================================================
+
+Nếu preprocessing source cho biết:
+
+Raw rows
+→ after cleaning
+→ after spatial mapping
+→ final usable trips
+
+thì tạo một mini funnel / waterfall:
+
+Raw trips
+↓
+Valid trips
+↓
+Zone-mapped trips
+↓
+Final dataset
+
+Đây là visual rất tốt để chứng minh tiền xử lý.
+
+NHƯNG:
+
+Chỉ làm nếu có chính xác số row ở từng bước.
+
+Nếu repository không lưu count:
+KHÔNG tự suy ra.
+
+Không viết giả:
+
+“removed X outliers”
+“removed X missing rows”
+
+nếu không có artifact.
+
+==================================================
+7. TEMPORAL DATA SPLIT
+==================================================
+
+Slide 12 vẫn phải có timeline:
+
+Jan 2013
+──────────────────────────────────── Aug 2013
+
+TRAIN
+912,375
+
+VALIDATION
+195,508
+
+TEST
+195,510
+
+Tỷ lệ xấp xỉ có thể tính từ số thật.
+
+Có thể thể hiện chiều dài bar tương ứng tỷ lệ dataset.
+
+Không vẽ 3 block bằng nhau nếu Train lớn hơn rõ.
+
+==================================================
+8. CÁC KPI DATASET NÊN TÌM
+==================================================
+
+Hãy tính từ dữ liệu thật:
+
+- Tổng số trips.
+- Số ngày quan sát.
+- Trips/ngày trung bình.
+- Trips/ngày median.
+- Trips/hour peak.
+- Số taxi zones.
+- Median fare.
+- Median trip duration.
+- P90 trip duration.
+- Nếu có distance:
+  median trip distance.
+
+Không đưa hết lên slide.
+
+Chọn khoảng 4–6 KPI có ý nghĩa nhất.
+
+Ví dụ phần trên Slide 12:
+
+1,303,393
+chuyến
+
+243 ngày
+quan sát
+
+67
+vùng taxi
+
+xx,xxx
+chuyến/ngày điển hình
+
+xx phút
+thời lượng chuyến trung vị
+
+$xx
+fare trung vị
+
+Nhưng số phải tính từ dataset thật.
+
+==================================================
+9. ƯU TIÊN VISUAL CHO SLIDE 12
+==================================================
+
+Slide 12 có thể bố cục như sau:
+
+┌─────────────────────────────────────────────────────┐
+│ Bộ dữ liệu NYC Taxi 2013 và cách tiền xử lý         │
+├─────────────┬───────────────────────────────────────┤
+│ DATA KPI    │ CHART                                 │
+│             │                                       │
+│ 1.30M trips │  Số chuyến theo giờ trong ngày       │
+│ 67 zones    │  ▁▂▂▃▅▆▇...                           │
+│ 243 days    │                                       │
+│ median ...  │                                       │
+├─────────────┴───────────────────────────────────────┤
+│ RAW → CLEAN → ZONE/TIME → REQUEST                  │
+│                                                     │
+│ Train ━━━━━━━━━━━━━  Validation ━━  Test ━━        │
+└─────────────────────────────────────────────────────┘

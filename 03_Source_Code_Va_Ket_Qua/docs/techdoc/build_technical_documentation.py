@@ -23,9 +23,9 @@ from docx.shared import Pt, RGBColor
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from _docx_style import (
-    NAVY, ACCENT as BLUE, GREY, setup_document, title_page, heading, para,
+    NAVY, ACCENT as BLUE, GREY, setup_document, title_page, toc_page, heading, para,
     bullets, add_table as _styled_add_table, add_figure as _styled_add_figure,
-    code_block, callout,
+    table_caption, code_block, callout,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,6 +36,7 @@ OUT = Path(__file__).parent / "Technical_Documentation.docx"
 
 DARK = RGBColor(0x20, 0x20, 0x20)
 _fig_counter = {"n": 0}
+_tbl_counter = {"n": 0}
 
 
 def git_head():
@@ -58,8 +59,12 @@ def csv_row_count(name):
         return sum(1 for _ in f) - 1
 
 
-def add_table(doc, headers, rows):
-    return _styled_add_table(doc, headers, rows)
+def add_table(doc, headers, rows, caption=None):
+    table = _styled_add_table(doc, headers, rows)
+    if caption:
+        _tbl_counter["n"] += 1
+        table_caption(doc, _tbl_counter["n"], caption)
+    return table
 
 
 def add_figure(doc, filename, caption, width=5.9):
@@ -129,6 +134,8 @@ def main():
                     "nộp này lẫn repo dev đã copy ra (fairdispatch_v3_clean/) -- cùng đường dẫn "
                     "tương đối, chỉ khác tên thư mục gốc."],
     )
+
+    toc_page(doc)
 
     # ---------------- 1. Tổng quan Hệ thống ----------------
     heading(doc, "1. Tổng quan Hệ thống (System Overview)", level=1)
@@ -217,7 +224,7 @@ def main():
         ["GPU", "NVIDIA GeForce GTX 1650, ~4,3 GB VRAM (có CUDA)"],
         ["Thư viện chính", "numpy 2.2.6, pandas 2.3.2, pyarrow 21.0.0, scipy 1.16.2, "
          "matplotlib 3.10.6, pytest 8.3.3, python-docx 1.2.0, torch 2.7.1+cu118"],
-    ])
+    ], caption="Môi trường phần cứng/phần mềm đã audit tại thời điểm build tài liệu.")
     code_block(doc, """
 python -m venv .venv
 .venv\\Scripts\\activate                 # Windows; dùng source .venv/bin/activate trên Linux/Mac
@@ -238,7 +245,7 @@ pip install torch                        # chỉ cần cho train_and_eval_mlp.py
         ["test.parquet", "CHỈ dùng để xác minh held-out cuối cùng theo thời gian (Mục 8) -- "
          "không bao giờ dùng để chọn lambda/gamma/alpha, không bao giờ dùng bởi product demo "
          "trực tiếp"],
-    ])
+    ], caption="Vai trò của từng phần chia dữ liệu (train/val/test).")
     heading(doc, "4.1 Schema parquet gốc (train/val/test)", level=2)
     para(doc, "Các cột được common_loader.load_requests_fast() và loader riêng của "
               "train_momaql.py đọc: pickup_ts (timestamp), pickup_latitude, pickup_longitude, "
@@ -304,7 +311,7 @@ Driver:
          "zone_classifier=None)", "tương tự + các ngày checkpoint + policy so sánh tùy chọn",
          "(result, dict checkpoints, disagreement_rate) -- MỘT quỹ đạo duy nhất, chụp snapshot ở "
          "mỗi ngày checkpoint, không phải chạy lại độc lập"],
-    ])
+    ], caption="Các hàm chính trong src/simulator.py.")
     para(doc, "Đơn giản hóa có chủ đích (đã công bố trong docstring module): vị trí driver là "
               "thật (lat, lon), không phải xấp xỉ theo ô không gian; ETA là khoảng cách "
               "haversine với tốc độ hằng số 12 mph, không phải mô hình road-routing thật; hệ số "
@@ -323,7 +330,7 @@ Driver:
         ["MOMAQL", "(1−λ)·[fare − eta×0,0025 + γ·Q(D_zone,D_hour)] + λ·[(mean_income−d.income)/"
          "max(mean_income,1)]·fare", "policy duy nhất có Q-learning online (on_committed cập "
          "nhật Q qua Bellman TD(0) trừ khi frozen=True)"],
-    ])
+    ], caption="Công thức score_fn của 5 policy điều phối.")
     para(doc, "Cả 5 policy dùng CHUNG một khung tham chiếu: hungarian_batch_assign() giải một "
               "phép ghép joint thật qua scipy.optimize.linear_sum_assignment trên ma trận chi "
               "phí (n_req+n_drv)×(n_req+n_drv) đệm dummy, nên mọi request/driver đều có lựa chọn "
@@ -338,7 +345,7 @@ Driver:
          "chính của chính paper"],
         ["coefficient_of_variation(values)", "std/mean; chặn NaN khi |mean| < 1e-9 (không ổn "
          "định khi utility trung bình gần 0)"],
-    ])
+    ], caption="Các hàm trong common_loader.py.")
 
     # ---------------- 6. Thuật toán / Pseudocode ----------------
     heading(doc, "6. Thuật toán / Pseudocode (Algorithm)", level=1)
@@ -398,7 +405,7 @@ Cập nhật Q (Bellman TD(0), lúc commit, chỉ khi không frozen):
          "Pareto", "tham số constructor MOMAQLPolicy(lam=...)"],
         ["gamma (discount)", "0,9", "tham số constructor MOMAQLPolicy(gamma=...)"],
         ["alpha (learning rate Q)", "0,1", "tham số constructor MOMAQLPolicy(alpha=...)"],
-    ])
+    ], caption="Hằng số cấu hình cấp module (không có central config file).")
 
     # ---------------- 8. Protocol Final Test ----------------
     if ft_available:
@@ -417,7 +424,7 @@ Cập nhật Q (Bellman TD(0), lúc commit, chỉ khi không frozen):
             ["Seed", "20260721, 20260722, 20260723, 20260724, 20260725"],
             ["Quy tắc không tuning", "Không đổi config/hyperparameter/policy/simulator sau khi đã "
              "xem bất kỳ kết quả Test nào"],
-        ])
+        ], caption="Protocol đóng băng dùng cho Final Held-out Test.")
         para(doc, "Toàn văn protocol (hash mã nguồn, checksum dataset, môi trường): "
                   "`final_test/FINAL_TEST_PROTOCOL.md`.", size=9.5, color=GREY)
 
@@ -443,7 +450,7 @@ Cập nhật Q (Bellman TD(0), lúc commit, chỉ khi không frozen):
             ["Sửa duration từ timestamp", str(tstats["duration_repaired"])],
             ["Loại do duration không phục hồi được", str(tstats["duration_excluded"])],
             ["Evaluation View cuối cùng của Test", str(tstats["final_evaluated_rows"])],
-        ])
+        ], caption="Số dòng bị ảnh hưởng qua từng bước data quality transform (test.parquet).")
         para(doc, "Triển khai: `scripts/final_test/quality_transform.py` "
                   "(`load_requests_with_quality_transform()`), có self-check ở "
                   "`scripts/final_test/test_quality_transform.py`. Mỗi request được đánh giá đều "
@@ -485,7 +492,7 @@ Cập nhật Q (Bellman TD(0), lúc commit, chỉ khi không frozen):
              "cốt lõi"],
             ["figures/", "PNG baseline/ablation/long-horizon sinh từ CSV Final Test"],
             ["logs/", "commands.log, environment.txt, runtimes.csv"],
-        ])
+        ], caption="Bản đồ artifact trong final_test/.")
 
         heading(doc, "8.5 Phụ lục Định nghĩa Metric", level=2)
         bullets(doc, [
@@ -560,7 +567,8 @@ Cập nhật Q (Bellman TD(0), lúc commit, chỉ khi không frozen):
         ("python docs/techdoc/build_technical_documentation.py", "docs/techdoc/"
          "Technical_Documentation.docx", "tài liệu này"),
     ]
-    add_table(doc, ["Lệnh", "Đầu ra", "Kết quả kỳ vọng"], cmd_rows)
+    add_table(doc, ["Lệnh", "Đầu ra", "Kết quả kỳ vọng"], cmd_rows,
+              caption="Lệnh tái lập chính xác, theo đúng thứ tự chạy.")
     callout(doc, "KHÔNG chạy train_momaql_multipass.py thay cho train_momaql.py -- đã công bố rõ "
                  "là không ổn định, có thể ghi ra data/momaql_q_table_multipass.json, và một số "
                  "script sẽ ưu tiên dùng file đó thay vì bảng canonical nếu nó tồn tại. Nếu file "
@@ -586,7 +594,7 @@ Cập nhật Q (Bellman TD(0), lúc commit, chỉ khi không frozen):
         ["Số lượng test", test_line],
         ["Artifact kết quả", "mọi file trong reports/ (16 CSV + 1 PNG + 1 manifest checksum "
          "JSON) -- Validation. Artifact Held-out Test: final_test/ (xem Mục 8)."],
-    ])
+    ], caption="Gói khả năng tái lập (reproducibility package) đầy đủ.")
     para(doc, "reports/dataset_checksums.json là snapshot tĩnh, đã ghi từ trước; bảng ở trên "
               "tính MỚI tại thời điểm build tài liệu và là nguồn có thẩm quyền nếu 2 bên có mâu "
               "thuẫn.", size=9.5, color=GREY)

@@ -97,11 +97,19 @@
   var selectedTrip = null;            // {reqIdx, batch}
   var servedEngineTotal = 0;
 
+  // ---- driver tracking (persistent focus on searched drivers across
+  // Run/Pause/Step/batch-activation -- never re-derived from the original
+  // marker's own tooltip, since syncIdleDrivers() unbind/rebinds that every
+  // batch). See the multi-driver tracking block below for trackedDrivers/
+  // cameraTargetDriverId. ----
+  var latestDriverState = new Map();  // driver_id -> last /step driver row (lat/lon/income/trips/busy)
+  var lastTrackedPanMs = 0;           // throttle for camera-target auto-pan-to-keep-in-view
+
   // ---- map ----
   var leafletMap = null;
   // Split into granular groups so the Map Layers panel can toggle each
   // independently (pure presentation -- toggling never touches engine state).
-  var mapLayers = { driver: null, activeRoute: null, historyTrail: null, requestMarkers: null, declined: null, infeasible: null, selection: null };
+  var mapLayers = { driver: null, activeRoute: null, historyTrail: null, requestMarkers: null, declined: null, infeasible: null, selection: null, searchFocus: null };
 
   function initMap() {
     if (typeof L === "undefined") {
@@ -122,6 +130,7 @@
     mapLayers.infeasible = L.layerGroup().addTo(leafletMap);
     mapLayers.driver = L.layerGroup().addTo(leafletMap);
     mapLayers.selection = L.layerGroup().addTo(leafletMap);
+    mapLayers.searchFocus = L.layerGroup().addTo(leafletMap);
     wireLayerToggles();
   }
 
@@ -166,6 +175,142 @@
     return m;
   }
 
+  // ---- driver tracking: real phase for a tracked driver, whether or not
+  // it currently has an active visual trip (syncIdleDrivers only updates
+  // phase for idle/non-animating drivers). ----
+  function trackedDriverPhase(driverId) {
+    if (activeTripByDriver.has(driverId)) {
+      var reqIdx = activeTripByDriver.get(driverId);
+      var trip = activeTrips.get(reqIdx);
+      if (trip) return trip.phase; // "deadhead" | "onboard"
+    }
+    var d = latestDriverState.get(driverId);
+    if (d && d.busy) return "onboard";
+    return "idle";
+  }
+
+  // ---- multi-driver tracking: each tracked driver gets its own overlay
+  // (focus ring + permanent tooltip) on the shared searchFocus layer, all
+  // updated in place every frame -- never a new DOM node/Leaflet layer per
+  // frame. Exactly one tracked driver is the camera target at a time, so
+  // auto-pan never chases N drivers moving in N directions at once. ----
+  var trackedDrivers = new Map(); // driverId -> { driverId, focusMarker }
+  var cameraTargetDriverId = null;
+  var MAX_TRACKED_DRIVERS = 10;
+
+  function createTrackedDriverOverlay(driverId) {
+    var marker = driverMarkers.get(driverId);
+    var latlng = marker ? marker.getLatLng() : [0, 0];
+    var ring = L.circleMarker(latlng, {
+      radius: 9, weight: 2, color: "#B91C1C", fillOpacity: 0, opacity: .9, interactive: false,
+      className: "driver-tracking-ring",
+    }).addTo(mapLayers.searchFocus);
+    ring.bindTooltip("", {
+      permanent: true, direction: "top", offset: [0, -9], opacity: 1, className: "driver-tracking-tooltip",
+    });
+    return { driverId: driverId, focusMarker: ring };
+  }
+
+  // Repositions/re-contents ONE tracked driver's overlay; only the current
+  // camera target ever triggers auto-pan (never all tracked drivers at once
+  // -- that would jitter the camera if they move in different directions).
+  function updateTrackedDriverOverlay(driverId, nowMs) {
+    var entry = trackedDrivers.get(driverId);
+    var marker = driverMarkers.get(driverId);
+    if (!entry || !marker) return;
+    var latlng = marker.getLatLng();
+    entry.focusMarker.setLatLng(latlng);
+    var isCameraTarget = driverId === cameraTargetDriverId;
+    entry.focusMarker.setStyle({ weight: isCameraTarget ? 3 : 2 });
+    var st = latestDriverState.get(driverId);
+    entry.focusMarker.setTooltipContent(
+      driverTooltip(driverId, trackedDriverPhase(driverId), st ? st.income : 0, st ? st.trips : 0)
+    );
+    if (isCameraTarget && leafletMap && nowMs - lastTrackedPanMs > 400) {
+      var safeBounds = leafletMap.getBounds().pad(-0.15);
+      if (!safeBounds.contains(latlng)) {
+        leafletMap.panInside(latlng, { padding: [40, 40] });
+        lastTrackedPanMs = nowMs;
+      }
+    }
+  }
+
+  function updateAllTrackedDriversFocus(nowMs) {
+    trackedDrivers.forEach(function (entry, driverId) { updateTrackedDriverOverlay(driverId, nowMs); });
+  }
+
+  function renderTrackingPanel() {
+    var panel = document.getElementById("trackingPanel");
+    if (!panel) return;
+    var chipsEl = document.getElementById("trackingChips");
+    if (trackedDrivers.size === 0) { panel.style.display = "none"; chipsEl.innerHTML = ""; return; }
+    panel.style.display = "block";
+    document.getElementById("trackingPanelLabel").textContent = "Đang theo dõi " + trackedDrivers.size + " tài xế";
+    chipsEl.innerHTML = "";
+    trackedDrivers.forEach(function (entry, driverId) {
+      var chip = document.createElement("span");
+      chip.className = "tracking-chip" + (driverId === cameraTargetDriverId ? " active" : "");
+      var body = document.createElement("span");
+      body.className = "tracking-chip-body";
+      body.textContent = "Tài xế #" + driverId;
+      body.title = "Focus camera vào Tài xế #" + driverId;
+      body.addEventListener("click", function () { setCameraTarget(driverId); });
+      var removeBtn = document.createElement("button");
+      removeBtn.className = "chip-remove";
+      removeBtn.textContent = "×";
+      removeBtn.setAttribute("aria-label", "Ngừng theo dõi Tài xế #" + driverId);
+      removeBtn.title = "Ngừng theo dõi Tài xế #" + driverId;
+      removeBtn.addEventListener("click", function (e) { e.stopPropagation(); removeTrackedDriver(driverId); });
+      chip.appendChild(body);
+      chip.appendChild(removeBtn);
+      chipsEl.appendChild(chip);
+    });
+  }
+
+  function setCameraTarget(driverId) {
+    if (!trackedDrivers.has(driverId)) return;
+    cameraTargetDriverId = driverId;
+    var marker = driverMarkers.get(driverId);
+    if (leafletMap && marker) leafletMap.panTo(marker.getLatLng());
+    lastTrackedPanMs = performance.now();
+    renderTrackingPanel();
+  }
+
+  // Search = add to tracking (never replaces existing tracked drivers).
+  // Re-searching an already-tracked driver just re-focuses the camera --
+  // no duplicate overlay.
+  function addOrFocusTrackedDriver(id) {
+    if (trackedDrivers.has(id)) {
+      setCameraTarget(id);
+      return { ok: true, alreadyTracked: true };
+    }
+    if (trackedDrivers.size >= MAX_TRACKED_DRIVERS) return { ok: false, alreadyTracked: false };
+    trackedDrivers.set(id, createTrackedDriverOverlay(id));
+    updateTrackedDriverOverlay(id, performance.now());
+    setCameraTarget(id);
+    return { ok: true, alreadyTracked: false };
+  }
+
+  function removeTrackedDriver(driverId) {
+    var entry = trackedDrivers.get(driverId);
+    if (!entry) return;
+    mapLayers.searchFocus.removeLayer(entry.focusMarker);
+    trackedDrivers.delete(driverId);
+    if (cameraTargetDriverId === driverId) {
+      var fallback = null;
+      trackedDrivers.forEach(function (e, id) { fallback = id; }); // most-recently-added remaining driver
+      cameraTargetDriverId = fallback;
+    }
+    renderTrackingPanel();
+  }
+
+  function clearAllTrackedDrivers() {
+    trackedDrivers.forEach(function (entry) { mapLayers.searchFocus.removeLayer(entry.focusMarker); });
+    trackedDrivers.clear();
+    cameraTargetDriverId = null;
+    renderTrackingPanel();
+  }
+
   // Drivers WITHOUT an active visual trip get synced straight from backend
   // state (idle drivers don't move). Drivers WITH an active trip are owned
   // by the global clock -- backend's post-commit r.drivers state must NEVER
@@ -174,6 +319,7 @@
   function syncIdleDrivers(r) {
     if (!leafletMap) return;
     r.drivers.forEach(function (d) {
+      latestDriverState.set(d.driver_id, d); // cache for tracking BEFORE the active-trip skip below
       if (activeTripByDriver.has(d.driver_id)) return; // clock owns this marker right now
       var m = driverMarkers.get(d.driver_id);
       var phase = d.busy ? "onboard" : "idle"; // best-effort label for non-animating drivers
@@ -301,6 +447,7 @@
       activeTrips.set(a.req_idx, trip);
       activeTripByDriver.set(a.driver_id, a.req_idx);
     });
+    updateAllTrackedDriversFocus(performance.now()); // avoid a stale frame right as this batch reveals
   }
 
   function completeVisualTrip(trip) {
@@ -370,6 +517,8 @@
 
   async function toggleAssignmentSelection(reqIdx, batch) {
     if (selectedTrip && selectedTrip.reqIdx === reqIdx && selectedTrip.batch === batch) { clearAssignmentSelection(); return; }
+    // Driver tracking and Request selection are independent -- searching a
+    // Request no longer clears tracked drivers (see multi-driver tracking).
     selectedTrip = { reqIdx: reqIdx, batch: batch };
     document.querySelectorAll("#assignTable tbody tr").forEach(function (tr) {
       tr.classList.toggle("selected", parseInt(tr.dataset.reqIdx, 10) === reqIdx && parseInt(tr.dataset.batch, 10) === batch);
@@ -449,6 +598,7 @@
 
     consumeDueBatches();
     updateActiveTrips(playback.simTime);
+    updateAllTrackedDriversFocus(nowMs);
     purgeExpired(playback.simTime === null ? -Infinity : playback.simTime);
     updatePlaybackUI();
   }
@@ -787,10 +937,15 @@
     var id = parseInt(raw, 10);
     if (isNaN(id)) { resultEl.textContent = "Nhập ID số (Driver ID hoặc Request ID)."; return; }
     if (driverMarkers.has(id)) {
-      var m = driverMarkers.get(id);
-      if (leafletMap) leafletMap.panTo(m.getLatLng());
-      m.openTooltip();
-      resultEl.innerHTML = "Tìm thấy <b>Tài xế #" + id + "</b> &mdash; đã pan map tới vị trí hiện tại.";
+      var res = addOrFocusTrackedDriver(id);
+      if (!res.ok) {
+        resultEl.innerHTML = "Bạn có thể theo dõi tối đa " + MAX_TRACKED_DRIVERS + " tài xế cùng lúc.<br>" +
+          "Hãy bỏ theo dõi một tài xế trước khi thêm tài xế mới.";
+      } else if (res.alreadyTracked) {
+        resultEl.innerHTML = "Tài xế #" + id + " đang được theo dõi.";
+      } else {
+        resultEl.innerHTML = "Đang theo dõi <b>Tài xế #" + id + "</b>. Vị trí và trạng thái sẽ được cập nhật khi mô phỏng chạy.";
+      }
       return;
     }
     var trip = findTrip(id);
@@ -803,6 +958,10 @@
   }
   document.getElementById("searchBtn").addEventListener("click", doSearch);
   document.getElementById("searchInput").addEventListener("keydown", function (e) { if (e.key === "Enter") doSearch(); });
+  document.getElementById("btnUntrackAll").addEventListener("click", function () {
+    clearAllTrackedDrivers();
+    document.getElementById("searchResult").textContent = "";
+  });
 
   // ---- Service Health / Fairness Guardrail / Alert Center -- operator-
   // defined demo thresholds, explicitly NOT claimed as paper findings. ----
@@ -957,6 +1116,8 @@
     historyTrail = [];
     driverMarkers.forEach(function (m) { mapLayers.driver.removeLayer(m); });
     driverMarkers.clear();
+    clearAllTrackedDrivers(); // §12: never carry tracked driver IDs across Reset/New Run
+    latestDriverState.clear();
     ephemeralRequests.forEach(function (item) { item.layer.removeLayer(item.marker); });
     ephemeralRequests = [];
     servedEngineTotal = 0;

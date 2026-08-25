@@ -8,7 +8,7 @@ reports/*.csv, or a hand-drawn schematic box diagram of the real pipeline.
 """
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor, Cm
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_BREAK
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.section import WD_SECTION
 from docx.oxml.ns import qn
@@ -99,6 +99,114 @@ def add_rule(doc, color="C9D2DE", size=10):
     pBdr.append(bottom)
     pPr.append(pBdr)
     return p
+
+
+def _field_paragraph(doc, instr, placeholder_text):
+    """A paragraph containing one Word field (begin/instrText/separate/
+    placeholder/end), all in a single run so there's no stray extra
+    paragraph left behind once Word expands the field in place."""
+    p = doc.add_paragraph()
+    run = p.add_run()
+    fld_begin = OxmlElement("w:fldChar")
+    fld_begin.set(qn("w:fldCharType"), "begin")
+    fld_begin.set(qn("w:dirty"), "true")
+    instr_el = OxmlElement("w:instrText")
+    instr_el.set(qn("xml:space"), "preserve")
+    instr_el.text = instr
+    fld_sep = OxmlElement("w:fldChar")
+    fld_sep.set(qn("w:fldCharType"), "separate")
+    placeholder = OxmlElement("w:t")
+    placeholder.set(qn("xml:space"), "preserve")
+    placeholder.text = placeholder_text
+    fld_end = OxmlElement("w:fldChar")
+    fld_end.set(qn("w:fldCharType"), "end")
+    run._r.append(fld_begin)
+    run._r.append(instr_el)
+    run._r.append(fld_sep)
+    run._r.append(placeholder)
+    run._r.append(fld_end)
+    for rr in p.runs:
+        rr.font.name = BODY_FONT
+        rr.font.size = Pt(11)
+        rr.font.color.rgb = INK
+    return p, run
+
+
+def _seq_field(paragraph, identifier, visible_number):
+    """A live `SEQ <identifier>` field inside an existing caption paragraph,
+    shown as visible_number until Word recalculates it. Word's `{ TOC \\c
+    "<identifier>" }` (see toc_page) finds captions by locating these SEQ
+    fields, so every add_figure()/table caption must carry one to be listed
+    in Danh mục Hình ảnh / Danh mục Bảng biểu."""
+    fld = OxmlElement("w:fldSimple")
+    fld.set(qn("w:instr"), f" SEQ {identifier} \\* ARABIC ")
+    inner_r = OxmlElement("w:r")
+    inner_t = OxmlElement("w:t")
+    inner_t.text = str(visible_number)
+    inner_r.append(inner_t)
+    fld.append(inner_r)
+    paragraph._p.append(fld)
+
+
+def _front_matter_subheading(doc, text):
+    t = doc.add_paragraph()
+    t.paragraph_format.space_before = Pt(18)
+    t.paragraph_format.space_after = Pt(6)
+    r = t.add_run(text.upper())
+    r.font.name = HEAD_FONT
+    r.font.size = Pt(13)
+    r.font.bold = True
+    r.font.color.rgb = ACCENT
+    return t
+
+
+def toc_page(doc, title="Mục lục"):
+    """Front-matter pages: Mục lục (native Word TOC over Heading 1/2 styles,
+    which heading() applies), Danh mục Hình ảnh, and Danh mục Bảng biểu
+    (both `{ TOC \\c }` fields keyed on the SEQ identifiers "Hinh"/"Bang" --
+    see _seq_field, used by add_figure() and add_table()'s caption param).
+    updateFields is set on the document so all three fill in with real
+    titles/captions + page numbers automatically on open, including when
+    the PDF is produced by driving real Word (docx2pdf). Call right after
+    title_page() and before the first heading()."""
+    settings = doc.settings.element
+    upd = OxmlElement("w:updateFields")
+    upd.set(qn("w:val"), "true")
+    settings.append(upd)
+
+    t = doc.add_paragraph()
+    t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = t.add_run(title.upper())
+    r.font.name = HEAD_FONT
+    r.font.size = Pt(20)
+    r.font.bold = True
+    r.font.color.rgb = NAVY
+    t.paragraph_format.space_after = Pt(6)
+    add_rule(doc, color="2B6CB0", size=14)
+
+    _field_paragraph(
+        doc, 'TOC \\o "1-2" \\h \\z \\u',
+        "Đang tạo mục lục -- mở bằng Microsoft Word (hoặc để Word tự cập nhật khi xuất PDF).",
+    )
+
+    _front_matter_subheading(doc, "Danh mục Hình ảnh")
+    _field_paragraph(
+        doc, 'TOC \\c "Hinh" \\h \\z',
+        "Chưa có hình ảnh nào -- hoặc mở bằng Word để cập nhật danh mục.",
+    )
+
+    _front_matter_subheading(doc, "Danh mục Bảng biểu")
+    _, last_run = _field_paragraph(
+        doc, 'TOC \\c "Bang" \\h \\z',
+        "Chưa có bảng nào -- hoặc mở bằng Word để cập nhật danh mục.",
+    )
+
+    # Page break as a character inside this same run (not doc.add_page_break(),
+    # which would add a whole extra empty paragraph after Word expands each
+    # field in place -- that stray paragraph rendered as a spurious blank
+    # page between the front matter and section 1).
+    last_run.add_break(WD_BREAK.PAGE)
+    return last_run
 
 
 def heading(doc, text, level=1):
@@ -225,6 +333,31 @@ def add_table(doc, headers, rows, first_col_left=True):
     return table
 
 
+def table_caption(doc, number, text):
+    """Caption line for a table (placed below it, matching add_figure's
+    below-placement convention in this document), carrying a live SEQ
+    field so Danh mục Bảng biểu (toc_page) can find it."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_after = Pt(12)
+    r = p.add_run("Bảng ")
+    r.bold = True
+    r.font.size = Pt(9)
+    r.font.name = HEAD_FONT
+    r.font.color.rgb = ACCENT
+    _seq_field(p, "Bang", number)
+    r_dot = p.add_run(". ")
+    r_dot.bold = True
+    r_dot.font.size = Pt(9)
+    r_dot.font.name = HEAD_FONT
+    r_dot.font.color.rgb = ACCENT
+    r2 = p.add_run(text)
+    r2.italic = True
+    r2.font.size = Pt(9)
+    r2.font.name = BODY_FONT
+    r2.font.color.rgb = GREY
+    return p
+
+
 def add_figure(doc, path, caption, width=5.9, number=None):
     if not path.exists():
         para(doc, f"[Missing figure: {path.name}]", color=RGBColor(0xB0, 0x2A, 0x2A))
@@ -235,12 +368,18 @@ def add_figure(doc, path, caption, width=5.9, number=None):
     cap = doc.add_paragraph()
     cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
     cap.paragraph_format.space_after = Pt(14)
-    label = f"Hinh {number}. " if number else ""
-    r = cap.add_run(label)
+    r = cap.add_run("Hinh " if number else "")
     r.bold = True
     r.font.size = Pt(9)
     r.font.name = HEAD_FONT
     r.font.color.rgb = ACCENT
+    if number:
+        _seq_field(cap, "Hinh", number)  # live field -> picked up by Danh mục Hình ảnh
+        r_dot = cap.add_run(". ")
+        r_dot.bold = True
+        r_dot.font.size = Pt(9)
+        r_dot.font.name = HEAD_FONT
+        r_dot.font.color.rgb = ACCENT
     r2 = cap.add_run(caption)
     r2.italic = True
     r2.font.size = Pt(9)

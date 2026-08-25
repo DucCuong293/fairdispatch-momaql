@@ -1,0 +1,155 @@
+{
+  "dataset_scale": {
+    "train_rows": 912375,
+    "validation_rows": 195508,
+    "test_rows_raw": 195510,
+    "test_rows_evaluated": 195506,
+    "total_trips_train_val_test": 1303393,
+    "zones": 67,
+    "canonical_drivers": 200,
+    "batch_window_seconds": 60.0,
+    "max_pickup_eta_seconds": 600.0
+  },
+  "dataset_date_ranges": {
+    "train": {
+      "start": "2013-01-01 00:00:10",
+      "end": "2013-06-13 14:53:25",
+      "rows": 912375
+    },
+    "validation": {
+      "start": "2013-06-13 14:53:28",
+      "end": "2013-07-21 13:17:00",
+      "rows": 195508
+    },
+    "test": {
+      "start": "2013-07-21 13:17:00",
+      "end": "2013-08-31 23:59:28",
+      "rows": 195510
+    }
+  },
+  "experiment_scale": {
+    "baseline_policies": 5,
+    "baseline_seeds": 5,
+    "baseline_runs": 25,
+    "ablation_variants": 3,
+    "ablation_seeds": 5,
+    "long_horizon_checkpoints": 11,
+    "fleet_scale_sizes": [
+      100,
+      200,
+      400
+    ]
+  },
+  "validation_service_rate_by_policy": {
+    "Exact REASSIGN": {
+      "completed_trips_mean": 63401.4,
+      "service_rate_pct": 32.4
+    },
+    "Greedy": {
+      "completed_trips_mean": 104815.6,
+      "service_rate_pct": 53.6
+    },
+    "LAF": {
+      "completed_trips_mean": 80431.4,
+      "service_rate_pct": 41.1
+    },
+    "MOMAQL": {
+      "completed_trips_mean": 152380.0,
+      "service_rate_pct": 77.9
+    },
+    "Nearest": {
+      "completed_trips_mean": 86370.4,
+      "service_rate_pct": 44.2
+    }
+  },
+  "validation_income_percentiles_by_policy": {
+    "Exact REASSIGN": {
+      "p10": 547.1,
+      "p50": 2716.7,
+      "p90": 6690.8
+    },
+    "Greedy": {
+      "p10": 552.0,
+      "p50": 3177.5,
+      "p90": 11787.7
+    },
+    "LAF": {
+      "p10": 3831.3,
+      "p50": 3834.9,
+      "p90": 3843.0
+    },
+    "MOMAQL": {
+      "p10": 4610.9,
+      "p50": 6175.8,
+      "p90": 10821.2
+    },
+    "Nearest": {
+      "p10": 597.2,
+      "p50": 3312.5,
+      "p90": 8251.7
+    }
+  },
+  "test_baseline_operational_by_policy": {
+    "Exact REASSIGN": {
+      "served_mean": 73297.2,
+      "service_rate_pct": 37.5,
+      "avg_income_mean": 3652.27,
+      "avg_deadhead_cost_usd": 0.5998
+    },
+    "Greedy": {
+      "served_mean": 114618.8,
+      "service_rate_pct": 58.6,
+      "avg_income_mean": 5368.74,
+      "avg_deadhead_cost_usd": 0.8877
+    },
+    "LAF": {
+      "served_mean": 85976.6,
+      "service_rate_pct": 44.0,
+      "avg_income_mean": 3997.52,
+      "avg_deadhead_cost_usd": 0.8968
+    },
+    "MOMAQL": {
+      "served_mean": 155874.8,
+      "service_rate_pct": 79.7,
+      "avg_income_mean": 7270.26,
+      "avg_deadhead_cost_usd": 0.6007
+    },
+    "Nearest": {
+      "served_mean": 92977.0,
+      "service_rate_pct": 47.6,
+      "avg_income_mean": 4273.48,
+      "avg_deadhead_cost_usd": 0.5179
+    }
+  },
+  "fleet_scale_service_rate": {
+    "100_full": {
+      "completed_mean": 115719.0,
+      "service_rate_pct": 59.2
+    },
+    "100_no_forecast": {
+      "completed_mean": 77472.0,
+      "service_rate_pct": 39.6
+    },
+    "200_full": {
+      "completed_mean": 152690.7,
+      "service_rate_pct": 78.1
+    },
+    "200_no_forecast": {
+      "completed_mean": 117862.0,
+      "service_rate_pct": 60.3
+    },
+    "400_full": {
+      "completed_mean": 194175.3,
+      "service_rate_pct": 99.3
+    },
+    "400_no_forecast": {
+      "completed_mean": 193864.0,
+      "service_rate_pct": 99.2
+    }
+  },
+  "test_ablation_gini_delta": {
+    "full_gini": 0.2011,
+    "no_forecast_gini": 0.1584,
+    "delta_no_forecast_minus_full": -0.0427
+  }
+}

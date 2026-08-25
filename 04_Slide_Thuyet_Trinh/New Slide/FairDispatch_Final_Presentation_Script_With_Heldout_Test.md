@@ -63,14 +63,14 @@ hệ thống, vừa hạn chế chênh lệch thu nhập tài xế."
 
 ### Phần 2 — Hệ thống FairDispatch (slide 4–6)
 
-**Slide 4 — Phục vụ ai.** "3 nhóm dùng: người quản lý vận hành, kỹ sư điều phối, nhóm dữ
-liệu/nghiên cứu. Giá trị: mô phỏng trước khi áp dụng thật, so sánh hiệu quả và công bằng, xem
-lý do hệ thống chọn tài xế, kiểm thử trên dữ liệu lịch sử."
-
-**Slide 5 — Là gì.** "FairDispatch là một hệ thống hỗ trợ đánh giá chiến lược điều phối chuyến
+**Slide 4 — Là gì.** "FairDispatch là một hệ thống hỗ trợ đánh giá chiến lược điều phối chuyến
 xe — không phải app khách hàng, không phải app tài xế, không phải hệ thống production thay
 Grab/XanhSM. Nó là công cụ mô phỏng, công cụ so sánh thuật toán, công cụ giải thích quyết định,
 và một bản demo trực quan."
+
+**Slide 5 — Phục vụ ai.** "3 nhóm dùng: người quản lý vận hành, kỹ sư điều phối, nhóm dữ
+liệu/nghiên cứu. Giá trị: mô phỏng trước khi áp dụng thật, so sánh hiệu quả và công bằng, xem
+lý do hệ thống chọn tài xế, kiểm thử trên dữ liệu lịch sử."
 
 **Slide 6 — 5 phần chính.** "Dữ liệu và kịch bản, bộ mô phỏng điều phối, các chiến lược điều
 phối, bộ đánh giá kết quả, giao diện demo trực quan — mỗi phần map thẳng vào code thật."

@@ -1,9 +1,10 @@
 {
   "build_timestamp": "2026-08-24T09:45:00",
-  "last_refreshed": "2026-08-24T11:20:00",
+  "last_refreshed": "2026-08-24T13:10:00",
   "deploy_target": "Render Web Service (Docker)",
   "source_repo": "D:\\ProjectVSF\\FairDispatch_MOMAQL_Fair_Ride_Hailing_Dispatch_Replication",
-  "05_SanPham_Demo_untouched": true,
+  "05_SanPham_Demo_untouched": false,
+  "05_SanPham_Demo_note": "UI-only + presentation-layer changes since this field was first set: Vietnamese localization pass and the driver-tracking fix below. Canonical engine/data untouched.",
   "canonical_hashes_verified": {
     "test.parquet": {
       "path": "D:\\ProjectVSF\\fairdispatch_v3_clean\\data\\test.parquet",
@@ -27,18 +28,58 @@
   },
   "bundled_files": {
     "_note": "Recomputed from actual current file content after all code changes in this pass -- not carried over from any prior round.",
-    "backend/app.py": {"sha256": "7db2dc44142e0da532daeaf1246d6f9c0ebf5d448d9e383883ae50da3b6a4adb", "size_bytes": 13430},
-    "backend/engine_adapter.py": {"sha256": "4c841be5117f0c3a204e1886a7bde98be545f63ee11ac03c7f96a1bf5f7ae316", "size_bytes": 21435},
-    "backend/paths.py": {"sha256": "ffaff1c78d9a651fa4581eb755390d00911fc1f9e4dfd0c508ef0d2ce9141a8c", "size_bytes": 764},
-    "backend/replay_adapter.py": {"sha256": "8b27a561debfe8ba7cbedb377ef04685be81bc18d4aa812184a07daa51c64bce", "size_bytes": 4878},
-    "frontend/app.js": {"sha256": "888577a6273d52a3ed1d7b371b21098e2cbb897f91e340892f21a58ff43b14ac", "size_bytes": 73267},
-    "frontend/index.html": {"sha256": "136b4cb9a68c5d9ee42c762ed1f0f7366760d4ca96722f9ea1120eb6793b4b00", "size_bytes": 25041},
-    "frontend/styles.css": {"sha256": "45cf961020daf538823de65f1d5df597af4cee8dc49d90a1b244f3df19dc1a23", "size_bytes": 17286},
-    "engine/common_loader.py": {"sha256": "ad14ca5ba27ef3ba50d71673c0185fdc0ca3664aa90a5537656e72fc0984d4e3", "size_bytes": 2763},
-    "engine/src/policies.py": {"sha256": "fe9e95883cbfa494748ac7a2fc115eda3bfe095ea4f05c7f0b2f368b0732f5ac", "size_bytes": 12308, "unchanged_from_canonical": true},
-    "engine/src/simulator.py": {"sha256": "b2dbf2e927d622f38d86039bdb8e5ea81b0984f405781c73527716078890368d", "size_bytes": 13381, "unchanged_from_canonical": true},
-    "data/test_eval.parquet": {"sha256": "2984be13d2c13a07ce4ff29ada928595ecd8079848b55d18a522dedd68c91b08", "size_bytes": 6880346, "rows": 195506},
-    "data/momaql_q_table_trained.json": {"sha256": "9af13c33219f989e23a8ee9eca9e0cda3262996e34849bcc6dfab0cab5d64bdb", "size_bytes": 47419, "unchanged_from_canonical": true}
+    "backend/app.py": {
+      "sha256": "89931f039366591d39135efabbeb3b8354ea816213508cc5721393a6173ca96e",
+      "size_bytes": 14144
+    },
+    "backend/engine_adapter.py": {
+      "sha256": "89babd10585781639d6ec2291d21da126012ee01eec859dfa6034ca0223b76d8",
+      "size_bytes": 21570
+    },
+    "backend/paths.py": {
+      "sha256": "ffaff1c78d9a651fa4581eb755390d00911fc1f9e4dfd0c508ef0d2ce9141a8c",
+      "size_bytes": 764
+    },
+    "backend/replay_adapter.py": {
+      "sha256": "8b27a561debfe8ba7cbedb377ef04685be81bc18d4aa812184a07daa51c64bce",
+      "size_bytes": 4878
+    },
+    "frontend/app.js": {
+      "sha256": "43d213fc2c1637028cdfd1eae63811f9c813c9fb388bb332b68db3748d8cf51a",
+      "size_bytes": 83087
+    },
+    "frontend/index.html": {
+      "sha256": "95c3b7cc4d999a152d84691ba485c732b535a311f0d2ce7f30130d1d6d5bb500",
+      "size_bytes": 27131
+    },
+    "frontend/styles.css": {
+      "sha256": "754e478be72248dcb3b9ae52690d5b12c27932419c655a91248199e330489e88",
+      "size_bytes": 18213
+    },
+    "engine/common_loader.py": {
+      "sha256": "ad14ca5ba27ef3ba50d71673c0185fdc0ca3664aa90a5537656e72fc0984d4e3",
+      "size_bytes": 2763
+    },
+    "engine/src/policies.py": {
+      "sha256": "fe9e95883cbfa494748ac7a2fc115eda3bfe095ea4f05c7f0b2f368b0732f5ac",
+      "size_bytes": 12308,
+      "unchanged_from_canonical": true
+    },
+    "engine/src/simulator.py": {
+      "sha256": "b2dbf2e927d622f38d86039bdb8e5ea81b0984f405781c73527716078890368d",
+      "size_bytes": 13381,
+      "unchanged_from_canonical": true
+    },
+    "data/test_eval.parquet": {
+      "sha256": "2984be13d2c13a07ce4ff29ada928595ecd8079848b55d18a522dedd68c91b08",
+      "size_bytes": 6880346,
+      "rows": 195506
+    },
+    "data/momaql_q_table_trained.json": {
+      "sha256": "9af13c33219f989e23a8ee9eca9e0cda3262996e34849bcc6dfab0cab5d64bdb",
+      "size_bytes": 47419,
+      "unchanged_from_canonical": true
+    }
   },
   "dataset": {
     "runtime_view": "Final Test Evaluation View",
@@ -55,9 +96,9 @@
   },
   "q_table_hash": "9af13c33219f989e23a8ee9eca9e0cda3262996e34849bcc6dfab0cab5d64bdb",
   "test_status": {
-    "pytest": "38 passed, 0 failed",
-    "suite": "06_Deployed/tests/test_deploy_bundle.py",
-    "note": "current, as of last_refreshed above -- see history in hardening_pass/consistency_fix_pass for prior counts (28, then 37)"
+    "pytest": "50 passed, 0 failed",
+    "suite": "06_Deployed/tests/ (test_deploy_bundle.py, test_frontend_vietnamese_ui.py, test_driver_tracking_static.py)",
+    "note": "current, as of last_refreshed above -- see history in hardening_pass/consistency_fix_pass for prior counts (28, then 37, then 38, then 48)"
   },
   "docker": {
     "build": "PASS",
@@ -77,8 +118,14 @@
       "previously_always_returned": 200
     },
     "public_demo_limits": {
-      "live_simulation": {"request_limit_max": 10000, "n_drivers_max": 400},
-      "compare_live": {"request_limit_max": 3000, "n_drivers_max": 400},
+      "live_simulation": {
+        "request_limit_max": 10000,
+        "n_drivers_max": 400
+      },
+      "compare_live": {
+        "request_limit_max": 3000,
+        "n_drivers_max": 400
+      },
       "violation_http_status": 400,
       "dataset_rows_unaffected": 195506
     },
@@ -87,7 +134,10 @@
       "eviction_policy": "oldest_first_fifo",
       "history_display_cap_unchanged": 100
     },
-    "tests": {"pytest": "37 passed, 0 failed", "new_tests_added": 9},
+    "tests": {
+      "pytest": "37 passed, 0 failed",
+      "new_tests_added": 9
+    },
     "docker": {
       "build": "PASS",
       "run": "PASS",
@@ -110,19 +160,68 @@
     },
     "manifest_hash_verification": {
       "discrepancies_found_before_fix": 2,
-      "files": ["backend/app.py", "frontend/index.html"],
+      "files": [
+        "backend/app.py",
+        "frontend/index.html"
+      ],
       "reason": "manifest had not been recomputed after the hardening-pass edits to those two files",
       "discrepancies_after_full_recompute": 0,
       "method": "SHA-256 of every file in bundled_files recomputed from actual current content, compared against the values written into this manifest -- all 12 match"
     },
-    "tests": {"pytest": "38 passed, 0 failed", "new_tests_added_this_pass": 1},
+    "tests": {
+      "pytest": "38 passed, 0 failed",
+      "new_tests_added_this_pass": 1
+    },
     "docker": {
-      "build": "PASS", "run": "PASS",
-      "idle_memory_mib": 116.9, "after_10_steps_mib": 121.4
+      "build": "PASS",
+      "run": "PASS",
+      "idle_memory_mib": 116.9,
+      "after_10_steps_mib": 121.4
     },
     "SESSIONS_cap": 20,
     "HISTORY_cap": 100,
     "05_SanPham_Demo_integrity": "PASS, 0 diffs (checked before and after this pass)",
+    "canonical_engine_hashes_unchanged": true,
+    "final_test_artifacts_unchanged": true
+  },
+  "vietnamese_ui_pass": {
+    "_label": "Full UI localization pass -- see VIETNAMESE_UI_AUDIT.md / _FINAL_AUDIT.md / _DEPLOYMENT_REPORT.md at the project root for the full record (English leakage: 0).",
+    "files_changed": [
+      "backend/app.py",
+      "backend/engine_adapter.py",
+      "frontend/app.js",
+      "frontend/index.html"
+    ],
+    "new_test_file": "tests/test_frontend_vietnamese_ui.py",
+    "canonical_engine_hashes_unchanged": true,
+    "final_test_artifacts_unchanged": true
+  },
+  "driver_tracking_fix_pass": {
+    "_label": "Fix: a searched driver lost its map focus/tooltip as soon as Run was pressed again (syncIdleDrivers() unbind/rebinds the marker's own tooltip every batch; the original marker was never a valid store for 'currently tracked' state).",
+    "_superseded_by": "multi_driver_tracking_pass below -- the single trackedDriverId design here was refactored to a trackedDrivers Map. Root cause and single-driver overlay mechanism described here remain accurate history; the report-assets/driver-tracking screenshots were superseded and removed from the local working tree (still recoverable from the fairdispatch-demo deploy-repo git history at commit d003bf0 if needed).",
+    "root_cause": "doSearch() called marker.openTooltip() once, with no persistent tracking state; syncIdleDrivers() unconditionally unbindTooltip()/bindTooltip()s every driver marker on every batch activation, closing whatever the search had just opened.",
+    "fix": "Dedicated trackedDriverId + a single reused focus-ring marker on its own mapLayers.searchFocus layer group, with a permanent Leaflet tooltip repositioned/recontented every rAF frame (updateTrackedDriverFocus) and right after each batch activation -- never re-derived from the original driver marker's own tooltip binding.",
+    "files_changed": [
+      "frontend/app.js",
+      "frontend/index.html",
+      "frontend/styles.css"
+    ],
+    "new_test_file": "tests/test_driver_tracking_static.py",
+    "browser_qa": "Playwright (chromium), 27/27 checks PASS -- search while paused, tracking survives Run across multiple batches (tooltip phase/income/trips observed updating live: 'Đang tới điểm đón' -> 'Đang chở khách'), survives Pause/Run/Step, single ring on switching tracked driver, Bỏ theo dõi clears cleanly without touching the driver marker or simulation state, Reset clears tracking, Request search still opens 'Vì sao chọn tài xế này?' and clears any active driver tracking (single primary map focus). Screenshots in report-assets/driver-tracking/.",
+    "canonical_engine_hashes_unchanged": true,
+    "final_test_artifacts_unchanged": true
+  },
+  "multi_driver_tracking_pass": {
+    "_label": "Follow-up: extend single-driver tracking to N simultaneous tracked drivers (chips list, remove-one, clear-all, single camera target).",
+    "design": "trackedDrivers Map (driverId -> {driverId, focusMarker}) replaces the single trackedDriverId; each entry gets its own focus-ring overlay + permanent tooltip on the shared mapLayers.searchFocus layer. Exactly one cameraTargetDriverId at a time -- only that driver's overlay ever triggers auto-pan, so N drivers moving in N directions never fight the camera. MAX_TRACKED_DRIVERS = 10 (frontend-only UX guard, no API change). Request selection and driver tracking are now independent (the previous single-driver pass's mutual-exclusion rule was reversed per this follow-up's explicit requirement).",
+    "files_changed": [
+      "frontend/app.js",
+      "frontend/index.html",
+      "frontend/styles.css"
+    ],
+    "new_test_file": "tests/test_driver_tracking_static.py (rewritten for multi-driver invariants)",
+    "browser_qa": "Playwright (chromium), 31/31 checks PASS on both 05 and 06 -- add 3 drivers without dropping earlier ones, re-searching an already-tracked driver refocuses camera without a duplicate overlay, chip click switches camera target, Run/Pause/Step preserve all tracked overlays+tooltips across multiple batches, removing one driver leaves the others tracked, removing the camera target falls back to the most-recently-added remaining driver, Request search coexists with tracking (does not clear it), the 10-driver limit blocks an 11th with the exact Vietnamese guard message, 'Ngừng theo dõi tất cả' clears every overlay/chip, Reset clears tracking. Screenshots in report-assets/multi-driver-tracking/ (both products).",
+    "bug_found_and_fixed_during_qa": "renderTrackingPanel()'s early-return path (0 tracked drivers) hid the panel but never cleared trackingChips.innerHTML, leaving stale chip DOM nodes behind after 'Ngừng theo dõi tất cả' -- caught by the Playwright run (testE_clear_all_chips), fixed by clearing chipsEl.innerHTML in that branch too.",
     "canonical_engine_hashes_unchanged": true,
     "final_test_artifacts_unchanged": true
   }
